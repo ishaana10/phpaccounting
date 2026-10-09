@@ -223,8 +223,31 @@ INSERT INTO `system_info` (`id`, `meta_field`, `meta_value`) VALUES
 (13, 'user_avatar', 'uploads/user_avatar.jpg'),
 (14, 'cover', 'uploads/cover-1643680511.png'),
 (15, 'content', 'Array'),
-(16, 'email', 'info@xyzcompany.com'),
+(16, 'email', 'info@nuvistechnologies.com.fj'),
 (17, 'contact', '09854698789 / 78945632'),
+(18, 'smtp_host', 'smtp.gmail.com'),
+(19, 'smtp_port', '587'),
+(20, 'smtp_user', 'no-reply@nuvistechnologies.com.fj'),
+(21, 'smtp_pass', ''),
+(22, 'smtp_encryption', 'tls');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `otp_tokens`
+--
+
+CREATE TABLE `otp_tokens` (
+  `id` int(30) NOT NULL AUTO_INCREMENT,
+  `user_id` int(50) NOT NULL,
+  `email` varchar(150) NOT NULL,
+  `otp_code` varchar(10) NOT NULL,
+  `expires_at` datetime NOT NULL,
+  `status` tinyint(1) NOT NULL DEFAULT 0 COMMENT '0 = Pending, 1 = Used',
+  `date_created` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 (18, 'from_time', '11:00'),
 (19, 'to_time', '21:30'),
 (20, 'address', 'XYZ Street, There City, Here, 2306');

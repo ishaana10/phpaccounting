@@ -17,7 +17,8 @@ if(isset($_GET['id']) && $_GET['id'] > 0){
 			<select name="employee_id" id="employee_id" class="form-control form-control-sm rounded-0 select2" required>
 				<option value="" disabled <?php echo !isset($employee_id) ? "selected" : "" ?>></option>
 				<?php
-				$emp_qry = $conn->query("SELECT *, concat(firstname, ' ', lastname) as name FROM `employee_list` where status = 1 and delete_flag = 0 order by firstname asc");
+				$tenant_id = $_settings->active_tenant_id();
+				$emp_qry = $conn->query("SELECT *, concat(firstname, ' ', lastname) as name FROM `employee_list` where tenant_id = '{$tenant_id}' and status = 1 and delete_flag = 0 order by firstname asc");
 				while($row = $emp_qry->fetch_assoc()):
 				?>
 				<option value="<?php echo $row['id'] ?>" data-salary="<?php echo $row['salary'] ?>" <?php echo isset($employee_id) && $employee_id == $row['id'] ? 'selected' : '' ?>><?php echo $row['employee_code'] . ' - ' . $row['name'] ?></option>

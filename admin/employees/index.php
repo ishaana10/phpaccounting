@@ -36,7 +36,8 @@
 				<tbody>
 					<?php
 					$i = 1;
-						$qry = $conn->query("SELECT *, concat(firstname, ' ', lastname) as name from `employee_list` where delete_flag = 0 order by id desc ");
+						$tenant_id = $_settings->active_tenant_id();
+						$qry = $conn->query("SELECT *, concat(firstname, ' ', lastname) as name from `employee_list` where tenant_id = '{$tenant_id}' and delete_flag = 0 order by id desc ");
 						while($row = $qry->fetch_assoc()):
 					?>
 						<tr>

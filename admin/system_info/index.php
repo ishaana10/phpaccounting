@@ -57,6 +57,37 @@
 			<div class="form-group d-flex justify-content-center">
 				<img src="<?php echo validate_image($_settings->info('cover')) ?>" alt="" id="cimg2" class="img-fluid img-thumbnail bg-gradient-dark border-dark">
 			</div>
+
+			<hr class="border-primary my-4">
+			<h5 class="text-primary font-weight-bold mb-3"><i class="fas fa-envelope-open-text mr-2"></i> Email & SMTP Settings</h5>
+			<div class="row">
+				<div class="col-md-6 form-group">
+					<label for="smtp_host" class="control-label">SMTP Host</label>
+					<input type="text" class="form-control form-control-sm" name="smtp_host" id="smtp_host" value="<?php echo $_settings->info('smtp_host') ? $_settings->info('smtp_host') : 'smtp.gmail.com' ?>">
+				</div>
+				<div class="col-md-3 form-group">
+					<label for="smtp_port" class="control-label">SMTP Port</label>
+					<input type="text" class="form-control form-control-sm" name="smtp_port" id="smtp_port" value="<?php echo $_settings->info('smtp_port') ? $_settings->info('smtp_port') : '587' ?>">
+				</div>
+				<div class="col-md-3 form-group">
+					<label for="smtp_encryption" class="control-label">Encryption</label>
+					<select name="smtp_encryption" id="smtp_encryption" class="form-control form-control-sm">
+						<option value="tls" <?php echo $_settings->info('smtp_encryption') == 'tls' ? 'selected' : '' ?>>TLS</option>
+						<option value="ssl" <?php echo $_settings->info('smtp_encryption') == 'ssl' ? 'selected' : '' ?>>SSL</option>
+						<option value="none" <?php echo $_settings->info('smtp_encryption') == 'none' ? 'selected' : '' ?>>None</option>
+					</select>
+				</div>
+			</div>
+			<div class="row">
+				<div class="col-md-6 form-group">
+					<label for="smtp_user" class="control-label">SMTP Username / Email</label>
+					<input type="email" class="form-control form-control-sm" name="smtp_user" id="smtp_user" value="<?php echo $_settings->info('smtp_user') ?>">
+				</div>
+				<div class="col-md-6 form-group">
+					<label for="smtp_pass" class="control-label">SMTP Password</label>
+					<input type="password" class="form-control form-control-sm" name="smtp_pass" id="smtp_pass" value="<?php echo $_settings->info('smtp_pass') ?>">
+				</div>
+			</div>
 			</form>
 		</div>
 		<div class="card-footer">

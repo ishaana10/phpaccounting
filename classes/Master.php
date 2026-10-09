@@ -355,6 +355,7 @@ Class Master extends DBConnection {
 
 	function delete_employee(){
 		extract($_POST);
+		$id = $this->conn->real_escape_string($id);
 		$del = $this->conn->query("UPDATE `employee_list` set delete_flag = 1 where id = '{$id}'");
 		if($del){
 			$resp['status'] = 'success';
@@ -404,6 +405,7 @@ Class Master extends DBConnection {
 
 	function delete_attendance(){
 		extract($_POST);
+		$id = $this->conn->real_escape_string($id);
 		$del = $this->conn->query("DELETE FROM `attendance_list` where id = '{$id}'");
 		if($del){
 			$resp['status'] = 'success';
@@ -449,6 +451,8 @@ Class Master extends DBConnection {
 
 	function update_leave_status(){
 		extract($_POST);
+		$id = $this->conn->real_escape_string($id);
+		$status = $this->conn->real_escape_string($status);
 		$update = $this->conn->query("UPDATE `leave_list` set `status` = '{$status}' where id = '{$id}'");
 		if($update){
 			$resp['status'] = 'success';
@@ -462,6 +466,7 @@ Class Master extends DBConnection {
 
 	function delete_leave(){
 		extract($_POST);
+		$id = $this->conn->real_escape_string($id);
 		$del = $this->conn->query("DELETE FROM `leave_list` where id = '{$id}'");
 		if($del){
 			$resp['status'] = 'success';
@@ -530,7 +535,7 @@ Class Master extends DBConnection {
 				('{$journal_id}', '{$cash_acc_id}', '{$group_credit_id}', '{$net_salary}')";
 			$this->conn->query($j_items);
 
-			$sql = "INSERT INTO `payroll_list` (`employee_id`, `journal_id`, `salary_month`, `basic_salary`, `allowances`, `deductions`, `net_salary`) VALUES ('{$employee_id}', '{$journal_id}', '{$salary_month}', '{$basic_salary}', '{$allowances}', '{$deductions}', '{$net_salary}')";
+			$sql = "INSERT INTO `payroll_list` (`tenant_id`, `employee_id`, `journal_id`, `salary_month`, `basic_salary`, `allowances`, `deductions`, `net_salary`) VALUES ('{$tenant_id}', '{$employee_id}', '{$journal_id}', '{$salary_month}', '{$basic_salary}', '{$allowances}', '{$deductions}', '{$net_salary}')";
 		} else {
 			$existing = $this->conn->query("SELECT journal_id FROM `payroll_list` WHERE id = '{$id}'")->fetch_assoc();
 			$journal_id = $existing['journal_id'];
@@ -561,6 +566,7 @@ Class Master extends DBConnection {
 
 	function delete_payroll(){
 		extract($_POST);
+		$id = $this->conn->real_escape_string($id);
 		$existing = $this->conn->query("SELECT journal_id FROM `payroll_list` WHERE id = '{$id}'")->fetch_assoc();
 		if(!empty($existing['journal_id'])){
 			$this->conn->query("DELETE FROM `journal_entries` WHERE id = '{$existing['journal_id']}'");
@@ -615,6 +621,7 @@ Class Master extends DBConnection {
 
 	function delete_tenant(){
 		extract($_POST);
+		$id = $this->conn->real_escape_string($id);
 		$del = $this->conn->query("UPDATE `tenants` set delete_flag = 1 where id = '{$id}'");
 		if($del){
 			$resp['status'] = 'success';

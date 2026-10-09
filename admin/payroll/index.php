@@ -38,7 +38,8 @@
 				<tbody>
 					<?php
 					$i = 1;
-						$qry = $conn->query("SELECT p.*, concat(e.firstname, ' ', e.lastname) as emp_name, e.employee_code from `payroll_list` p inner join `employee_list` e on p.employee_id = e.id order by p.id desc ");
+						$tenant_id = $_settings->active_tenant_id();
+						$qry = $conn->query("SELECT p.*, concat(e.firstname, ' ', e.lastname) as emp_name, e.employee_code from `payroll_list` p inner join `employee_list` e on p.employee_id = e.id where p.tenant_id = '{$tenant_id}' order by p.id desc ");
 						while($row = $qry->fetch_assoc()):
 					?>
 						<tr>
