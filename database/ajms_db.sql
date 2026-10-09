@@ -191,8 +191,8 @@ CREATE TABLE `system_info` (
 --
 
 INSERT INTO `system_info` (`id`, `meta_field`, `meta_value`) VALUES
-(1, 'name', 'Accounting Journal Management System'),
-(6, 'short_name', 'AJMS - PHP'),
+(1, 'name', 'Nuvis ERPX'),
+(6, 'short_name', 'Nuvis ERPX'),
 (11, 'logo', 'uploads/logo-1643680475.png'),
 (13, 'user_avatar', 'uploads/user_avatar.jpg'),
 (14, 'cover', 'uploads/cover-1643680511.png'),
@@ -326,6 +326,95 @@ ALTER TABLE `journal_items`
   ADD CONSTRAINT `journal_items_ibfk_1` FOREIGN KEY (`journal_id`) REFERENCES `journal_entries` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `journal_items_ibfk_2` FOREIGN KEY (`account_id`) REFERENCES `account_list` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `journal_items_ibfk_3` FOREIGN KEY (`group_id`) REFERENCES `group_list` (`id`) ON DELETE CASCADE;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `employee_list`
+--
+
+CREATE TABLE `employee_list` (
+  `id` int(30) NOT NULL AUTO_INCREMENT,
+  `employee_code` varchar(50) NOT NULL,
+  `firstname` varchar(100) NOT NULL,
+  `lastname` varchar(100) NOT NULL,
+  `phone` varchar(20) DEFAULT NULL,
+  `department` varchar(200) DEFAULT NULL,
+  `designation` varchar(100) DEFAULT NULL,
+  `date_of_joining` date DEFAULT NULL,
+  `salary` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `status` tinyint(1) NOT NULL DEFAULT 1,
+  `delete_flag` tinyint(1) NOT NULL DEFAULT 0,
+  `date_created` datetime NOT NULL DEFAULT current_timestamp(),
+  `date_updated` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `employee_code` (`employee_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `attendance_list`
+--
+
+CREATE TABLE `attendance_list` (
+  `id` int(30) NOT NULL AUTO_INCREMENT,
+  `employee_id` int(30) NOT NULL,
+  `attendance_date` date NOT NULL,
+  `check_in` time DEFAULT NULL,
+  `check_out` time DEFAULT NULL,
+  `status` enum('present','absent','late','half_day') NOT NULL DEFAULT 'present',
+  `date_created` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `emp_date` (`employee_id`,`attendance_date`),
+  KEY `employee_id` (`employee_id`),
+  CONSTRAINT `attendance_ibfk_1` FOREIGN KEY (`employee_id`) REFERENCES `employee_list` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `leave_list`
+--
+
+CREATE TABLE `leave_list` (
+  `id` int(30) NOT NULL AUTO_INCREMENT,
+  `employee_id` int(30) NOT NULL,
+  `leave_type` enum('casual','sick','paid','unpaid') NOT NULL DEFAULT 'casual',
+  `start_date` date NOT NULL,
+  `end_date` date NOT NULL,
+  `reason` text DEFAULT NULL,
+  `status` enum('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+  `date_created` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `employee_id` (`employee_id`),
+  CONSTRAINT `leave_ibfk_1` FOREIGN KEY (`employee_id`) REFERENCES `employee_list` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `payroll_list`
+--
+
+CREATE TABLE `payroll_list` (
+  `id` int(30) NOT NULL AUTO_INCREMENT,
+  `employee_id` int(30) NOT NULL,
+  `journal_id` int(30) DEFAULT NULL,
+  `salary_month` varchar(20) NOT NULL,
+  `basic_salary` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `allowances` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `deductions` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `net_salary` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `status` tinyint(1) NOT NULL DEFAULT 1,
+  `date_created` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `employee_id` (`employee_id`),
+  KEY `journal_id` (`journal_id`),
+  CONSTRAINT `payroll_ibfk_1` FOREIGN KEY (`employee_id`) REFERENCES `employee_list` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `payroll_ibfk_2` FOREIGN KEY (`journal_id`) REFERENCES `journal_entries` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

@@ -308,6 +308,266 @@ Class Master extends DBConnection {
 		}
 		return json_encode($resp);
 	}
+
+	/* Employee Management Functions */
+	function save_employee(){
+		extract($_POST);
+		$data = "";
+		foreach($_POST as $k =>$v){
+			if(!in_array($k,array('id'))){
+				if(!is_numeric($v))
+					$v = $this->conn->real_escape_string($v);
+				if(!empty($data)) $data .=",";
+				$data .= " `{$k}`='{$v}' ";
+			}
+		}
+		if(empty($id)){
+			$sql = "INSERT INTO `employee_list` set {$data} ";
+		}else{
+			$sql = "UPDATE `employee_list` set {$data} where id = '{$id}' ";
+		}
+		$check = $this->conn->query("SELECT * FROM `employee_list` where `employee_code` = '{$employee_code}' and delete_flag = 0 ".($id > 0 ? " and id != '{$id}'" : ""))->num_rows;
+		if($check > 0){
+			$resp['status'] = 'failed';
+			$resp['msg'] = " Employee Code already exists.";
+		}else{
+			$save = $this->conn->query($sql);
+			if($save){
+				$resp['status'] = 'success';
+				if(empty($id))
+					$resp['msg'] = " Employee has been successfully added.";
+				else
+					$resp['msg'] = " Employee details have been updated successfully.";
+			}else{
+				$resp['status'] = 'failed';
+				$resp['msg'] = "An error occurred.";
+				$resp['err'] = $this->conn->error."[{$sql}]";
+			}
+		}
+		if($resp['status'] =='success')
+			$this->settings->set_flashdata('success',$resp['msg']);
+		return json_encode($resp);
+	}
+
+	function delete_employee(){
+		extract($_POST);
+		$del = $this->conn->query("UPDATE `employee_list` set delete_flag = 1 where id = '{$id}'");
+		if($del){
+			$resp['status'] = 'success';
+			$this->settings->set_flashdata('success'," Employee has been deleted successfully.");
+		}else{
+			$resp['status'] = 'failed';
+			$resp['error'] = $this->conn->error;
+		}
+		return json_encode($resp);
+	}
+
+	/* Attendance Management Functions */
+	function save_attendance(){
+		extract($_POST);
+		$employee_id = $this->conn->real_escape_string($employee_id);
+		$attendance_date = $this->conn->real_escape_string($attendance_date);
+		$status = $this->conn->real_escape_string($status);
+
+		$check = $this->conn->query("SELECT * FROM `attendance_list` where `employee_id` = '{$employee_id}' and `attendance_date` = '{$attendance_date}' ".(!empty($id) && $id > 0 ? " and id != '{$id}'" : ""))->num_rows;
+		if($check > 0){
+			$resp['status'] = 'failed';
+			$resp['msg'] = " Attendance record for this employee on the selected date already exists.";
+			return json_encode($resp);
+		}
+		$check_in = !empty($check_in) ? "'".$this->conn->real_escape_string($check_in)."'" : "NULL";
+		$check_out = !empty($check_out) ? "'".$this->conn->real_escape_string($check_out)."'" : "NULL";
+
+		if(empty($id)){
+			$sql = "INSERT INTO `attendance_list` (`employee_id`, `attendance_date`, `check_in`, `check_out`, `status`) VALUES ('{$employee_id}', '{$attendance_date}', {$check_in}, {$check_out}, '{$status}')";
+		}else{
+			$sql = "UPDATE `attendance_list` SET `employee_id`='{$employee_id}', `attendance_date`='{$attendance_date}', `check_in`={$check_in}, `check_out`={$check_out}, `status`='{$status}' WHERE id = '{$id}'";
+		}
+		$save = $this->conn->query($sql);
+		if($save){
+			$resp['status'] = 'success';
+			$resp['msg'] = empty($id) ? " Attendance record saved successfully." : " Attendance record updated successfully.";
+		}else{
+			$resp['status'] = 'failed';
+			$resp['msg'] = "An error occurred while saving attendance.";
+			$resp['err'] = $this->conn->error;
+		}
+		if($resp['status'] =='success')
+			$this->settings->set_flashdata('success',$resp['msg']);
+		return json_encode($resp);
+	}
+
+	function delete_attendance(){
+		extract($_POST);
+		$del = $this->conn->query("DELETE FROM `attendance_list` where id = '{$id}'");
+		if($del){
+			$resp['status'] = 'success';
+			$this->settings->set_flashdata('success'," Attendance record deleted successfully.");
+		}else{
+			$resp['status'] = 'failed';
+			$resp['error'] = $this->conn->error;
+		}
+		return json_encode($resp);
+	}
+
+	/* Leave Management Functions */
+	function save_leave(){
+		extract($_POST);
+		$data = "";
+		foreach($_POST as $k =>$v){
+			if(!in_array($k,array('id'))){
+				if(!is_numeric($v))
+					$v = $this->conn->real_escape_string($v);
+				if(!empty($data)) $data .=",";
+				$data .= " `{$k}`='{$v}' ";
+			}
+		}
+		if(empty($id)){
+			$sql = "INSERT INTO `leave_list` set {$data} ";
+		}else{
+			$sql = "UPDATE `leave_list` set {$data} where id = '{$id}' ";
+		}
+		$save = $this->conn->query($sql);
+		if($save){
+			$resp['status'] = 'success';
+			$resp['msg'] = empty($id) ? " Leave request submitted successfully." : " Leave request updated successfully.";
+		}else{
+			$resp['status'] = 'failed';
+			$resp['msg'] = "An error occurred while saving leave request.";
+			$resp['err'] = $this->conn->error;
+		}
+		if($resp['status'] =='success')
+			$this->settings->set_flashdata('success',$resp['msg']);
+		return json_encode($resp);
+	}
+
+	function update_leave_status(){
+		extract($_POST);
+		$update = $this->conn->query("UPDATE `leave_list` set `status` = '{$status}' where id = '{$id}'");
+		if($update){
+			$resp['status'] = 'success';
+			$this->settings->set_flashdata('success'," Leave status updated successfully.");
+		}else{
+			$resp['status'] = 'failed';
+			$resp['error'] = $this->conn->error;
+		}
+		return json_encode($resp);
+	}
+
+	function delete_leave(){
+		extract($_POST);
+		$del = $this->conn->query("DELETE FROM `leave_list` where id = '{$id}'");
+		if($del){
+			$resp['status'] = 'success';
+			$this->settings->set_flashdata('success'," Leave request deleted successfully.");
+		}else{
+			$resp['status'] = 'failed';
+			$resp['error'] = $this->conn->error;
+		}
+		return json_encode($resp);
+	}
+
+	/* Payroll & Journal Integration Functions */
+	function save_payroll(){
+		extract($_POST);
+		$employee_id = $this->conn->real_escape_string($employee_id);
+		$salary_month = $this->conn->real_escape_string($salary_month);
+		$basic_salary = $this->conn->real_escape_string($basic_salary);
+		$allowances = $this->conn->real_escape_string($allowances);
+		$deductions = $this->conn->real_escape_string($deductions);
+		$net_salary = $this->conn->real_escape_string($net_salary);
+
+		// Find or default account for Salaries Expense (Debit) and Cash/Payroll Payable (Credit)
+		$salary_acc = $this->conn->query("SELECT id FROM `account_list` WHERE (`name` LIKE '%salary%' OR `name` LIKE '%expense%') AND delete_flag = 0 LIMIT 1");
+		$salary_acc_id = ($salary_acc->num_rows > 0) ? $salary_acc->fetch_assoc()['id'] : 1;
+
+		$cash_acc = $this->conn->query("SELECT id FROM `account_list` WHERE `name` LIKE '%cash%' AND delete_flag = 0 LIMIT 1");
+		$cash_acc_id = ($cash_acc->num_rows > 0) ? $cash_acc->fetch_assoc()['id'] : 1;
+
+		$group_debit = $this->conn->query("SELECT id FROM `group_list` WHERE `type` = '1' AND delete_flag = 0 LIMIT 1");
+		$group_debit_id = ($group_debit && $group_debit->num_rows > 0) ? $group_debit->fetch_assoc()['id'] : 1;
+
+		$group_credit = $this->conn->query("SELECT id FROM `group_list` WHERE `type` = '2' AND delete_flag = 0 LIMIT 1");
+		$group_credit_id = ($group_credit && $group_credit->num_rows > 0) ? $group_credit->fetch_assoc()['id'] : 2;
+
+		// Create Journal Entry
+		$prefix = date("Ym-");
+		$code = sprintf("%'.05d",1);
+		while(true){
+			$check = $this->conn->query("SELECT * FROM `journal_entries` where `code` = '{$prefix}{$code}' ")->num_rows;
+			if($check > 0){
+				$code = sprintf("%'.05d",ceil($code) + 1);
+			}else{
+				break;
+			}
+		}
+		$journal_code = $prefix.$code;
+		$user_id = $this->settings->userdata('id');
+		$journal_date = date("Y-m-d");
+
+		// Fetch employee name
+		$emp_qry = $this->conn->query("SELECT *, concat(firstname, ' ', lastname) as name FROM `employee_list` WHERE id = '{$employee_id}'");
+		$emp_name = ($emp_qry->num_rows > 0) ? $emp_qry->fetch_assoc()['name'] : "Employee #{$employee_id}";
+
+		$description = $this->conn->real_escape_string("Payroll Disbursement for {$emp_name} for the period {$salary_month}");
+
+		if(empty($id)){
+			// Insert new journal entry
+			$j_sql = "INSERT INTO `journal_entries` (`code`, `journal_date`, `description`, `user_id`, `status`) VALUES ('{$journal_code}', '{$journal_date}', '{$description}', '{$user_id}', 1)";
+			$this->conn->query($j_sql);
+			$journal_id = $this->conn->insert_id;
+
+			// Insert journal items: Debit Salary Expense, Credit Cash
+			$j_items = "INSERT INTO `journal_items` (`journal_id`, `account_id`, `group_id`, `amount`) VALUES
+				('{$journal_id}', '{$salary_acc_id}', '{$group_debit_id}', '{$net_salary}'),
+				('{$journal_id}', '{$cash_acc_id}', '{$group_credit_id}', '{$net_salary}')";
+			$this->conn->query($j_items);
+
+			$sql = "INSERT INTO `payroll_list` (`employee_id`, `journal_id`, `salary_month`, `basic_salary`, `allowances`, `deductions`, `net_salary`) VALUES ('{$employee_id}', '{$journal_id}', '{$salary_month}', '{$basic_salary}', '{$allowances}', '{$deductions}', '{$net_salary}')";
+		} else {
+			$existing = $this->conn->query("SELECT journal_id FROM `payroll_list` WHERE id = '{$id}'")->fetch_assoc();
+			$journal_id = $existing['journal_id'];
+			if($journal_id){
+				$this->conn->query("UPDATE `journal_entries` SET `description` = '{$description}' WHERE id = '{$journal_id}'");
+				$this->conn->query("DELETE FROM `journal_items` WHERE journal_id = '{$journal_id}'");
+				$j_items = "INSERT INTO `journal_items` (`journal_id`, `account_id`, `group_id`, `amount`) VALUES
+					('{$journal_id}', '{$salary_acc_id}', '{$group_debit_id}', '{$net_salary}'),
+					('{$journal_id}', '{$cash_acc_id}', '{$group_credit_id}', '{$net_salary}')";
+				$this->conn->query($j_items);
+			}
+			$sql = "UPDATE `payroll_list` SET `employee_id`='{$employee_id}', `salary_month`='{$salary_month}', `basic_salary`='{$basic_salary}', `allowances`='{$allowances}', `deductions`='{$deductions}', `net_salary`='{$net_salary}' WHERE id = '{$id}'";
+		}
+
+		$save = $this->conn->query($sql);
+		if($save){
+			$resp['status'] = 'success';
+			$resp['msg'] = empty($id) ? " Payroll processed and Journal Entry created successfully." : " Payroll updated successfully.";
+		}else{
+			$resp['status'] = 'failed';
+			$resp['msg'] = "An error occurred while saving payroll.";
+			$resp['err'] = $this->conn->error;
+		}
+		if($resp['status'] =='success')
+			$this->settings->set_flashdata('success',$resp['msg']);
+		return json_encode($resp);
+	}
+
+	function delete_payroll(){
+		extract($_POST);
+		$existing = $this->conn->query("SELECT journal_id FROM `payroll_list` WHERE id = '{$id}'")->fetch_assoc();
+		if(!empty($existing['journal_id'])){
+			$this->conn->query("DELETE FROM `journal_entries` WHERE id = '{$existing['journal_id']}'");
+		}
+		$del = $this->conn->query("DELETE FROM `payroll_list` WHERE id = '{$id}'");
+		if($del){
+			$resp['status'] = 'success';
+			$this->settings->set_flashdata('success'," Payroll record deleted successfully.");
+		}else{
+			$resp['status'] = 'failed';
+			$resp['error'] = $this->conn->error;
+		}
+		return json_encode($resp);
+	}
 }
 
 $Master = new Master();
@@ -349,6 +609,33 @@ switch ($action) {
 	break;
 	case 'cancel_journal':
 		echo $Master->cancel_journal();
+	break;
+	case 'save_employee':
+		echo $Master->save_employee();
+	break;
+	case 'delete_employee':
+		echo $Master->delete_employee();
+	break;
+	case 'save_attendance':
+		echo $Master->save_attendance();
+	break;
+	case 'delete_attendance':
+		echo $Master->delete_attendance();
+	break;
+	case 'save_leave':
+		echo $Master->save_leave();
+	break;
+	case 'update_leave_status':
+		echo $Master->update_leave_status();
+	break;
+	case 'delete_leave':
+		echo $Master->delete_leave();
+	break;
+	case 'save_payroll':
+		echo $Master->save_payroll();
+	break;
+	case 'delete_payroll':
+		echo $Master->delete_payroll();
 	break;
 	default:
 		// echo $sysset->index();
