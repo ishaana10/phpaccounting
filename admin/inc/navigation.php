@@ -39,6 +39,39 @@
                         </p>
                       </a>
                     </li>
+                    <li class="nav-header">Payroll & Human Resources</li>
+                    <li class="nav-item">
+                      <a href="<?php echo base_url ?>admin/?page=employees" class="nav-link text-light nav-employees">
+                        <i class="nav-icon fas fa-user-tie"></i>
+                        <p>
+                          Employees
+                        </p>
+                      </a>
+                    </li>
+                    <li class="nav-item">
+                      <a href="<?php echo base_url ?>admin/?page=attendance" class="nav-link text-light nav-attendance">
+                        <i class="nav-icon fas fa-user-clock"></i>
+                        <p>
+                          Attendance
+                        </p>
+                      </a>
+                    </li>
+                    <li class="nav-item">
+                      <a href="<?php echo base_url ?>admin/?page=leaves" class="nav-link text-light nav-leaves">
+                        <i class="nav-icon fas fa-business-time"></i>
+                        <p>
+                          Leave Applications
+                        </p>
+                      </a>
+                    </li>
+                    <li class="nav-item">
+                      <a href="<?php echo base_url ?>admin/?page=payroll" class="nav-link text-light nav-payroll">
+                        <i class="nav-icon fas fa-file-invoice-dollar"></i>
+                        <p>
+                          Payroll & Payslips
+                        </p>
+                      </a>
+                    </li>
                     <li class="nav-header">Report</li>
                     <li class="nav-item">
                       <a href="<?php echo base_url ?>admin/?page=reports/working_trial_balance" class="nav-link text-light nav-reports_working_trial_balance">
@@ -79,6 +112,14 @@
                         <i class="nav-icon fas fa-users-cog"></i>
                         <p>
                           User List
+                        </p>
+                      </a>
+                    </li>
+                    <li class="nav-item dropdown">
+                      <a href="<?php echo base_url ?>admin/?page=tenants" class="nav-link text-light nav-tenants">
+                        <i class="nav-icon fas fa-building"></i>
+                        <p>
+                          Tenants / Companies
                         </p>
                       </a>
                     </li>

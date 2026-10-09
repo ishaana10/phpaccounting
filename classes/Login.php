@@ -79,6 +79,60 @@ class Login extends DBConnection {
 			redirect('./');
 		}
 	}
+
+	public function request_otp(){
+		extract($_POST);
+		$email = $this->conn->real_escape_string($email);
+		$qry = $this->conn->query("SELECT * FROM `users` WHERE `username` = '{$email}' LIMIT 1");
+
+		if(!$qry || $qry->num_rows == 0){
+			return json_encode(['status' => 'failed', 'msg' => 'No user account found with that username / email.']);
+		}
+
+		$user = $qry->fetch_assoc();
+		$user_id = $user['id'];
+		$otp_code = sprintf("%06d", rand(100000, 999999));
+		$expires_at = date("Y-m-d H:i:s", strtotime("+15 minutes"));
+
+		$this->conn->query("UPDATE `otp_tokens` SET `status` = 1 WHERE `user_id` = '{$user_id}'");
+		$ins = $this->conn->query("INSERT INTO `otp_tokens` (`user_id`, `email`, `otp_code`, `expires_at`, `status`) VALUES ('{$user_id}', '{$email}', '{$otp_code}', '{$expires_at}', 0)");
+
+		if($ins){
+			// Attempt to send email via standard PHP mail
+			$subject = "Nuvis ERPX - Password Reset OTP Code";
+			$message = "Hello " . $user['firstname'] . ",\n\nYour OTP code for resetting your password on Nuvis ERPX is: " . $otp_code . "\nThis code will expire in 15 minutes.\n\nNuvis Technologies";
+			$headers = "From: " . $this->settings->info('smtp_user') . "\r\nReply-To: " . $this->settings->info('smtp_user');
+
+			@mail($email, $subject, $message, $headers);
+
+			return json_encode([
+				'status' => 'success',
+				'msg' => 'An OTP code has been sent to your email address.',
+				'user_id' => $user_id
+			]);
+		} else {
+			return json_encode(['status' => 'failed', 'msg' => 'Failed to generate OTP code.']);
+		}
+	}
+
+	public function reset_password_otp(){
+		extract($_POST);
+		$user_id = $this->conn->real_escape_string($user_id);
+		$otp_code = $this->conn->real_escape_string($otp_code);
+		$new_password = md5($password);
+
+		$qry = $this->conn->query("SELECT * FROM `otp_tokens` WHERE `user_id` = '{$user_id}' AND `otp_code` = '{$otp_code}' AND `status` = 0 AND `expires_at` >= NOW() ORDER BY id DESC LIMIT 1");
+
+		if($qry && $qry->num_rows > 0){
+			$token = $qry->fetch_assoc();
+			$this->conn->query("UPDATE `users` SET `password` = '{$new_password}' WHERE `id` = '{$user_id}'");
+			$this->conn->query("UPDATE `otp_tokens` SET `status` = 1 WHERE `id` = '{$token['id']}'");
+
+			return json_encode(['status' => 'success', 'msg' => 'Password reset successfully! You can now log in with your new password.']);
+		} else {
+			return json_encode(['status' => 'failed', 'msg' => 'Invalid or expired OTP code.']);
+		}
+	}
 }
 $action = !isset($_GET['f']) ? 'none' : strtolower($_GET['f']);
 $auth = new Login();
@@ -94,6 +148,12 @@ switch ($action) {
 		break;
 	case 'client_logout':
 		echo $auth->client_logout();
+		break;
+	case 'request_otp':
+		echo $auth->request_otp();
+		break;
+	case 'reset_password_otp':
+		echo $auth->reset_password_otp();
 		break;
 	default:
 		echo $auth->index();

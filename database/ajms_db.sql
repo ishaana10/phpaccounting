@@ -24,11 +24,35 @@ SET time_zone = "+00:00";
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `tenants`
+--
+
+CREATE TABLE `tenants` (
+  `id` int(30) NOT NULL AUTO_INCREMENT,
+  `tenant_code` varchar(50) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `email` varchar(150) DEFAULT NULL,
+  `phone` varchar(50) DEFAULT NULL,
+  `address` text DEFAULT NULL,
+  `status` tinyint(1) NOT NULL DEFAULT 1,
+  `delete_flag` tinyint(1) NOT NULL DEFAULT 0,
+  `date_created` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `tenant_code` (`tenant_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO `tenants` (`id`, `tenant_code`, `name`, `email`, `phone`, `address`, `status`) VALUES
+(1, 'TNT-001', 'Default Enterprise Tenant', 'info@nuvistechnologies.com.fj', '+679 123 4567', 'Suva, Fiji', 1);
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `account_list`
 --
 
 CREATE TABLE `account_list` (
   `id` int(30) NOT NULL,
+  `tenant_id` int(30) NOT NULL DEFAULT 1,
   `name` text NOT NULL,
   `description` text NOT NULL,
   `status` tinyint(1) NOT NULL DEFAULT 1,
@@ -100,6 +124,7 @@ INSERT INTO `account_list` (`id`, `name`, `description`, `status`, `delete_flag`
 
 CREATE TABLE `group_list` (
   `id` int(30) NOT NULL,
+  `tenant_id` int(30) NOT NULL DEFAULT 1,
   `name` text NOT NULL,
   `description` text NOT NULL,
   `type` tinyint(1) NOT NULL DEFAULT 1 COMMENT '1 = Debit, 2= Credit',
@@ -130,6 +155,7 @@ INSERT INTO `group_list` (`id`, `name`, `description`, `type`, `status`, `delete
 
 CREATE TABLE `journal_entries` (
   `id` int(30) NOT NULL,
+  `tenant_id` int(30) NOT NULL DEFAULT 1,
   `code` varchar(100) NOT NULL,
   `journal_date` date NOT NULL,
   `description` text NOT NULL,
@@ -191,14 +217,37 @@ CREATE TABLE `system_info` (
 --
 
 INSERT INTO `system_info` (`id`, `meta_field`, `meta_value`) VALUES
-(1, 'name', 'Accounting Journal Management System'),
-(6, 'short_name', 'AJMS - PHP'),
+(1, 'name', 'Nuvis ERPX'),
+(6, 'short_name', 'Nuvis ERPX'),
 (11, 'logo', 'uploads/logo-1643680475.png'),
 (13, 'user_avatar', 'uploads/user_avatar.jpg'),
 (14, 'cover', 'uploads/cover-1643680511.png'),
 (15, 'content', 'Array'),
-(16, 'email', 'info@xyzcompany.com'),
+(16, 'email', 'info@nuvistechnologies.com.fj'),
 (17, 'contact', '09854698789 / 78945632'),
+(18, 'smtp_host', 'smtp.gmail.com'),
+(19, 'smtp_port', '587'),
+(20, 'smtp_user', 'no-reply@nuvistechnologies.com.fj'),
+(21, 'smtp_pass', ''),
+(22, 'smtp_encryption', 'tls');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `otp_tokens`
+--
+
+CREATE TABLE `otp_tokens` (
+  `id` int(30) NOT NULL AUTO_INCREMENT,
+  `user_id` int(50) NOT NULL,
+  `email` varchar(150) NOT NULL,
+  `otp_code` varchar(10) NOT NULL,
+  `expires_at` datetime NOT NULL,
+  `status` tinyint(1) NOT NULL DEFAULT 0 COMMENT '0 = Pending, 1 = Used',
+  `date_created` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 (18, 'from_time', '11:00'),
 (19, 'to_time', '21:30'),
 (20, 'address', 'XYZ Street, There City, Here, 2306');
@@ -211,6 +260,7 @@ INSERT INTO `system_info` (`id`, `meta_field`, `meta_value`) VALUES
 
 CREATE TABLE `users` (
   `id` int(50) NOT NULL,
+  `tenant_id` int(30) NOT NULL DEFAULT 1,
   `firstname` varchar(250) NOT NULL,
   `middlename` text DEFAULT NULL,
   `lastname` varchar(250) NOT NULL,
@@ -326,6 +376,103 @@ ALTER TABLE `journal_items`
   ADD CONSTRAINT `journal_items_ibfk_1` FOREIGN KEY (`journal_id`) REFERENCES `journal_entries` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `journal_items_ibfk_2` FOREIGN KEY (`account_id`) REFERENCES `account_list` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `journal_items_ibfk_3` FOREIGN KEY (`group_id`) REFERENCES `group_list` (`id`) ON DELETE CASCADE;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `employee_list`
+--
+
+CREATE TABLE `employee_list` (
+  `id` int(30) NOT NULL AUTO_INCREMENT,
+  `tenant_id` int(30) NOT NULL DEFAULT 1,
+  `employee_code` varchar(50) NOT NULL,
+  `firstname` varchar(100) NOT NULL,
+  `lastname` varchar(100) NOT NULL,
+  `phone` varchar(20) DEFAULT NULL,
+  `department` varchar(200) DEFAULT NULL,
+  `designation` varchar(100) DEFAULT NULL,
+  `date_of_joining` date DEFAULT NULL,
+  `salary` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `status` tinyint(1) NOT NULL DEFAULT 1,
+  `delete_flag` tinyint(1) NOT NULL DEFAULT 0,
+  `date_created` datetime NOT NULL DEFAULT current_timestamp(),
+  `date_updated` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `tenant_id` (`tenant_id`),
+  UNIQUE KEY `emp_tenant_code` (`tenant_id`, `employee_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `attendance_list`
+--
+
+CREATE TABLE `attendance_list` (
+  `id` int(30) NOT NULL AUTO_INCREMENT,
+  `tenant_id` int(30) NOT NULL DEFAULT 1,
+  `employee_id` int(30) NOT NULL,
+  `attendance_date` date NOT NULL,
+  `check_in` time DEFAULT NULL,
+  `check_out` time DEFAULT NULL,
+  `status` enum('present','absent','late','half_day') NOT NULL DEFAULT 'present',
+  `date_created` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `emp_date` (`employee_id`,`attendance_date`),
+  KEY `tenant_id` (`tenant_id`),
+  KEY `employee_id` (`employee_id`),
+  CONSTRAINT `attendance_ibfk_1` FOREIGN KEY (`employee_id`) REFERENCES `employee_list` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `leave_list`
+--
+
+CREATE TABLE `leave_list` (
+  `id` int(30) NOT NULL AUTO_INCREMENT,
+  `tenant_id` int(30) NOT NULL DEFAULT 1,
+  `employee_id` int(30) NOT NULL,
+  `leave_type` enum('casual','sick','paid','unpaid') NOT NULL DEFAULT 'casual',
+  `start_date` date NOT NULL,
+  `end_date` date NOT NULL,
+  `reason` text DEFAULT NULL,
+  `status` enum('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+  `date_created` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `tenant_id` (`tenant_id`),
+  KEY `employee_id` (`employee_id`),
+  CONSTRAINT `leave_ibfk_1` FOREIGN KEY (`employee_id`) REFERENCES `employee_list` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `payroll_list`
+--
+
+CREATE TABLE `payroll_list` (
+  `id` int(30) NOT NULL AUTO_INCREMENT,
+  `tenant_id` int(30) NOT NULL DEFAULT 1,
+  `employee_id` int(30) NOT NULL,
+  `journal_id` int(30) DEFAULT NULL,
+  `salary_month` varchar(20) NOT NULL,
+  `basic_salary` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `allowances` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `deductions` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `net_salary` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `status` tinyint(1) NOT NULL DEFAULT 1,
+  `date_created` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `tenant_id` (`tenant_id`),
+  KEY `employee_id` (`employee_id`),
+  KEY `journal_id` (`journal_id`),
+  CONSTRAINT `payroll_ibfk_1` FOREIGN KEY (`employee_id`) REFERENCES `employee_list` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `payroll_ibfk_2` FOREIGN KEY (`journal_id`) REFERENCES `journal_entries` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

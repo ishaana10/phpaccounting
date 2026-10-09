@@ -142,6 +142,24 @@ class SystemSettings extends DBConnection{
 			return false;
 		}
 	}
+
+	function active_tenant_id(){
+		if(isset($_SESSION['userdata']['active_tenant_id']) && $_SESSION['userdata']['active_tenant_id'] > 0){
+			return (int)$_SESSION['userdata']['active_tenant_id'];
+		}
+		if(isset($_SESSION['userdata']['tenant_id']) && $_SESSION['userdata']['tenant_id'] > 0){
+			return (int)$_SESSION['userdata']['tenant_id'];
+		}
+		return 1;
+	}
+
+	function set_active_tenant($tenant_id){
+		if($tenant_id > 0){
+			$_SESSION['userdata']['active_tenant_id'] = (int)$tenant_id;
+			return true;
+		}
+		return false;
+	}
 	function set_flashdata($flash='',$value=''){
 		if(!empty($flash) && !empty($value)){
 			$_SESSION['flashdata'][$flash]= $value;
@@ -194,6 +212,12 @@ $sysset = new SystemSettings();
 switch ($action) {
 	case 'update_settings':
 		echo $sysset->update_settings_info();
+		break;
+	case 'switch_tenant':
+		if(isset($_POST['tenant_id'])){
+			$sysset->set_active_tenant($_POST['tenant_id']);
+			echo json_encode(['status' => 'success']);
+		}
 		break;
 	default:
 		// echo $sysset->index();
