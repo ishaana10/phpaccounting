@@ -248,9 +248,6 @@ CREATE TABLE `otp_tokens` (
   PRIMARY KEY (`id`),
   KEY `user_id` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-(18, 'from_time', '11:00'),
-(19, 'to_time', '21:30'),
-(20, 'address', 'XYZ Street, There City, Here, 2306');
 
 -- --------------------------------------------------------
 
