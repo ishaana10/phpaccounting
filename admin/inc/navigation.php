@@ -116,6 +116,14 @@
                       </a>
                     </li>
                     <li class="nav-item dropdown">
+                      <a href="<?php echo base_url ?>admin/?page=tenants" class="nav-link text-light nav-tenants">
+                        <i class="nav-icon fas fa-building"></i>
+                        <p>
+                          Tenants / Companies
+                        </p>
+                      </a>
+                    </li>
+                    <li class="nav-item dropdown">
                       <a href="<?php echo base_url ?>admin/?page=system_info" class="nav-link text-light nav-system_info">
                         <i class="nav-icon fas fa-cogs"></i>
                         <p>

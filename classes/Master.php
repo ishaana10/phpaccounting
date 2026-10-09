@@ -31,12 +31,13 @@ Class Master extends DBConnection {
 				$data .= " `{$k}`='{$v}' ";
 			}
 		}
+		$tenant_id = $this->settings->active_tenant_id();
 		if(empty($id)){
-			$sql = "INSERT INTO `group_list` set {$data} ";
+			$sql = "INSERT INTO `group_list` set `tenant_id`='{$tenant_id}', {$data} ";
 		}else{
-			$sql = "UPDATE `group_list` set {$data} where id = '{$id}' ";
+			$sql = "UPDATE `group_list` set {$data} where id = '{$id}' and tenant_id = '{$tenant_id}' ";
 		}
-		$check = $this->conn->query("SELECT * FROM `group_list` where `name` = '{$name}' and delete_flag = 0 ".($id > 0 ? " and id != '{$id}'" : ""));
+		$check = $this->conn->query("SELECT * FROM `group_list` where `name` = '{$name}' and tenant_id = '{$tenant_id}' and delete_flag = 0 ".($id > 0 ? " and id != '{$id}'" : ""));
 		if($check->num_rows > 0){
 			$resp['status'] = 'failed';
 			$resp['msg'] = " Account's Group Name already exists.";
@@ -73,6 +74,7 @@ Class Master extends DBConnection {
 	}
 	function save_account(){
 		extract($_POST);
+		$tenant_id = $this->settings->active_tenant_id();
 		$data = "";
 		foreach($_POST as $k =>$v){
 			if(!in_array($k,array('id'))){
@@ -83,11 +85,11 @@ Class Master extends DBConnection {
 			}
 		}
 		if(empty($id)){
-			$sql = "INSERT INTO `account_list` set {$data} ";
+			$sql = "INSERT INTO `account_list` set `tenant_id`='{$tenant_id}', {$data} ";
 		}else{
-			$sql = "UPDATE `account_list` set {$data} where id = '{$id}' ";
+			$sql = "UPDATE `account_list` set {$data} where id = '{$id}' and tenant_id = '{$tenant_id}' ";
 		}
-		$check = $this->conn->query("SELECT * FROM `account_list` where `name` ='{$name}' and delete_flag = 0 ".($id > 0 ? " and id != '{$id}' " : ""))->num_rows;
+		$check = $this->conn->query("SELECT * FROM `account_list` where `name` ='{$name}' and tenant_id = '{$tenant_id}' and delete_flag = 0 ".($id > 0 ? " and id != '{$id}' " : ""))->num_rows;
 		if($check > 0){
 			$resp['status'] = 'failed';
 			$resp['msg'] = " Account's Name already exists.";
@@ -124,11 +126,12 @@ Class Master extends DBConnection {
 		return json_encode($resp);
 	}
 	function save_journal(){
+		$tenant_id = $this->settings->active_tenant_id();
 		if(empty($_POST['id'])){
 			$prefix = date("Ym-");
 			$code = sprintf("%'.05d",1);
 			while(true){
-				$check = $this->conn->query("SELECT * FROM `journal_entries` where `code` = '{$prefix}{$code}' ")->num_rows;
+				$check = $this->conn->query("SELECT * FROM `journal_entries` where `code` = '{$prefix}{$code}' and tenant_id = '{$tenant_id}' ")->num_rows;
 				if($check > 0){
 					$code = sprintf("%'.05d",ceil($code) + 1);
 				}else{
@@ -152,9 +155,9 @@ Class Master extends DBConnection {
 			}
 		}
 		if(empty($id)){
-			$sql = "INSERT INTO `journal_entries` set {$data} ";
+			$sql = "INSERT INTO `journal_entries` set `tenant_id`='{$tenant_id}', {$data} ";
 		}else{
-			$sql = "UPDATE `journal_entries` set {$data} where id = '{$id}' ";
+			$sql = "UPDATE `journal_entries` set {$data} where id = '{$id}' and tenant_id = '{$tenant_id}' ";
 		}
 		$save = $this->conn->query($sql);
 		if($save){
@@ -312,6 +315,7 @@ Class Master extends DBConnection {
 	/* Employee Management Functions */
 	function save_employee(){
 		extract($_POST);
+		$tenant_id = $this->settings->active_tenant_id();
 		$data = "";
 		foreach($_POST as $k =>$v){
 			if(!in_array($k,array('id'))){
@@ -322,11 +326,11 @@ Class Master extends DBConnection {
 			}
 		}
 		if(empty($id)){
-			$sql = "INSERT INTO `employee_list` set {$data} ";
+			$sql = "INSERT INTO `employee_list` set `tenant_id`='{$tenant_id}', {$data} ";
 		}else{
-			$sql = "UPDATE `employee_list` set {$data} where id = '{$id}' ";
+			$sql = "UPDATE `employee_list` set {$data} where id = '{$id}' and tenant_id = '{$tenant_id}' ";
 		}
-		$check = $this->conn->query("SELECT * FROM `employee_list` where `employee_code` = '{$employee_code}' and delete_flag = 0 ".($id > 0 ? " and id != '{$id}'" : ""))->num_rows;
+		$check = $this->conn->query("SELECT * FROM `employee_list` where `employee_code` = '{$employee_code}' and tenant_id = '{$tenant_id}' and delete_flag = 0 ".($id > 0 ? " and id != '{$id}'" : ""))->num_rows;
 		if($check > 0){
 			$resp['status'] = 'failed';
 			$resp['msg'] = " Employee Code already exists.";
@@ -365,11 +369,12 @@ Class Master extends DBConnection {
 	/* Attendance Management Functions */
 	function save_attendance(){
 		extract($_POST);
+		$tenant_id = $this->settings->active_tenant_id();
 		$employee_id = $this->conn->real_escape_string($employee_id);
 		$attendance_date = $this->conn->real_escape_string($attendance_date);
 		$status = $this->conn->real_escape_string($status);
 
-		$check = $this->conn->query("SELECT * FROM `attendance_list` where `employee_id` = '{$employee_id}' and `attendance_date` = '{$attendance_date}' ".(!empty($id) && $id > 0 ? " and id != '{$id}'" : ""))->num_rows;
+		$check = $this->conn->query("SELECT * FROM `attendance_list` where `employee_id` = '{$employee_id}' and `attendance_date` = '{$attendance_date}' and tenant_id = '{$tenant_id}' ".(!empty($id) && $id > 0 ? " and id != '{$id}'" : ""))->num_rows;
 		if($check > 0){
 			$resp['status'] = 'failed';
 			$resp['msg'] = " Attendance record for this employee on the selected date already exists.";
@@ -379,9 +384,9 @@ Class Master extends DBConnection {
 		$check_out = !empty($check_out) ? "'".$this->conn->real_escape_string($check_out)."'" : "NULL";
 
 		if(empty($id)){
-			$sql = "INSERT INTO `attendance_list` (`employee_id`, `attendance_date`, `check_in`, `check_out`, `status`) VALUES ('{$employee_id}', '{$attendance_date}', {$check_in}, {$check_out}, '{$status}')";
+			$sql = "INSERT INTO `attendance_list` (`tenant_id`, `employee_id`, `attendance_date`, `check_in`, `check_out`, `status`) VALUES ('{$tenant_id}', '{$employee_id}', '{$attendance_date}', {$check_in}, {$check_out}, '{$status}')";
 		}else{
-			$sql = "UPDATE `attendance_list` SET `employee_id`='{$employee_id}', `attendance_date`='{$attendance_date}', `check_in`={$check_in}, `check_out`={$check_out}, `status`='{$status}' WHERE id = '{$id}'";
+			$sql = "UPDATE `attendance_list` SET `employee_id`='{$employee_id}', `attendance_date`='{$attendance_date}', `check_in`={$check_in}, `check_out`={$check_out}, `status`='{$status}' WHERE id = '{$id}' and tenant_id = '{$tenant_id}'";
 		}
 		$save = $this->conn->query($sql);
 		if($save){
@@ -413,6 +418,7 @@ Class Master extends DBConnection {
 	/* Leave Management Functions */
 	function save_leave(){
 		extract($_POST);
+		$tenant_id = $this->settings->active_tenant_id();
 		$data = "";
 		foreach($_POST as $k =>$v){
 			if(!in_array($k,array('id'))){
@@ -423,9 +429,9 @@ Class Master extends DBConnection {
 			}
 		}
 		if(empty($id)){
-			$sql = "INSERT INTO `leave_list` set {$data} ";
+			$sql = "INSERT INTO `leave_list` set `tenant_id`='{$tenant_id}', {$data} ";
 		}else{
-			$sql = "UPDATE `leave_list` set {$data} where id = '{$id}' ";
+			$sql = "UPDATE `leave_list` set {$data} where id = '{$id}' and tenant_id = '{$tenant_id}' ";
 		}
 		$save = $this->conn->query($sql);
 		if($save){
@@ -470,6 +476,7 @@ Class Master extends DBConnection {
 	/* Payroll & Journal Integration Functions */
 	function save_payroll(){
 		extract($_POST);
+		$tenant_id = $this->settings->active_tenant_id();
 		$employee_id = $this->conn->real_escape_string($employee_id);
 		$salary_month = $this->conn->real_escape_string($salary_month);
 		$basic_salary = $this->conn->real_escape_string($basic_salary);
@@ -478,23 +485,23 @@ Class Master extends DBConnection {
 		$net_salary = $this->conn->real_escape_string($net_salary);
 
 		// Find or default account for Salaries Expense (Debit) and Cash/Payroll Payable (Credit)
-		$salary_acc = $this->conn->query("SELECT id FROM `account_list` WHERE (`name` LIKE '%salary%' OR `name` LIKE '%expense%') AND delete_flag = 0 LIMIT 1");
-		$salary_acc_id = ($salary_acc->num_rows > 0) ? $salary_acc->fetch_assoc()['id'] : 1;
+		$salary_acc = $this->conn->query("SELECT id FROM `account_list` WHERE (`name` LIKE '%salary%' OR `name` LIKE '%expense%') AND tenant_id = '{$tenant_id}' AND delete_flag = 0 LIMIT 1");
+		$salary_acc_id = ($salary_acc && $salary_acc->num_rows > 0) ? $salary_acc->fetch_assoc()['id'] : 1;
 
-		$cash_acc = $this->conn->query("SELECT id FROM `account_list` WHERE `name` LIKE '%cash%' AND delete_flag = 0 LIMIT 1");
-		$cash_acc_id = ($cash_acc->num_rows > 0) ? $cash_acc->fetch_assoc()['id'] : 1;
+		$cash_acc = $this->conn->query("SELECT id FROM `account_list` WHERE `name` LIKE '%cash%' AND tenant_id = '{$tenant_id}' AND delete_flag = 0 LIMIT 1");
+		$cash_acc_id = ($cash_acc && $cash_acc->num_rows > 0) ? $cash_acc->fetch_assoc()['id'] : 1;
 
-		$group_debit = $this->conn->query("SELECT id FROM `group_list` WHERE `type` = '1' AND delete_flag = 0 LIMIT 1");
+		$group_debit = $this->conn->query("SELECT id FROM `group_list` WHERE `type` = '1' AND tenant_id = '{$tenant_id}' AND delete_flag = 0 LIMIT 1");
 		$group_debit_id = ($group_debit && $group_debit->num_rows > 0) ? $group_debit->fetch_assoc()['id'] : 1;
 
-		$group_credit = $this->conn->query("SELECT id FROM `group_list` WHERE `type` = '2' AND delete_flag = 0 LIMIT 1");
+		$group_credit = $this->conn->query("SELECT id FROM `group_list` WHERE `type` = '2' AND tenant_id = '{$tenant_id}' AND delete_flag = 0 LIMIT 1");
 		$group_credit_id = ($group_credit && $group_credit->num_rows > 0) ? $group_credit->fetch_assoc()['id'] : 2;
 
 		// Create Journal Entry
 		$prefix = date("Ym-");
 		$code = sprintf("%'.05d",1);
 		while(true){
-			$check = $this->conn->query("SELECT * FROM `journal_entries` where `code` = '{$prefix}{$code}' ")->num_rows;
+			$check = $this->conn->query("SELECT * FROM `journal_entries` where `code` = '{$prefix}{$code}' and tenant_id = '{$tenant_id}' ")->num_rows;
 			if($check > 0){
 				$code = sprintf("%'.05d",ceil($code) + 1);
 			}else{
@@ -506,14 +513,14 @@ Class Master extends DBConnection {
 		$journal_date = date("Y-m-d");
 
 		// Fetch employee name
-		$emp_qry = $this->conn->query("SELECT *, concat(firstname, ' ', lastname) as name FROM `employee_list` WHERE id = '{$employee_id}'");
-		$emp_name = ($emp_qry->num_rows > 0) ? $emp_qry->fetch_assoc()['name'] : "Employee #{$employee_id}";
+		$emp_qry = $this->conn->query("SELECT *, concat(firstname, ' ', lastname) as name FROM `employee_list` WHERE id = '{$employee_id}' and tenant_id = '{$tenant_id}'");
+		$emp_name = ($emp_qry && $emp_qry->num_rows > 0) ? $emp_qry->fetch_assoc()['name'] : "Employee #{$employee_id}";
 
 		$description = $this->conn->real_escape_string("Payroll Disbursement for {$emp_name} for the period {$salary_month}");
 
 		if(empty($id)){
 			// Insert new journal entry
-			$j_sql = "INSERT INTO `journal_entries` (`code`, `journal_date`, `description`, `user_id`, `status`) VALUES ('{$journal_code}', '{$journal_date}', '{$description}', '{$user_id}', 1)";
+			$j_sql = "INSERT INTO `journal_entries` (`tenant_id`, `code`, `journal_date`, `description`, `user_id`, `status`) VALUES ('{$tenant_id}', '{$journal_code}', '{$journal_date}', '{$description}', '{$user_id}', 1)";
 			$this->conn->query($j_sql);
 			$journal_id = $this->conn->insert_id;
 
@@ -562,6 +569,56 @@ Class Master extends DBConnection {
 		if($del){
 			$resp['status'] = 'success';
 			$this->settings->set_flashdata('success'," Payroll record deleted successfully.");
+		}else{
+			$resp['status'] = 'failed';
+			$resp['error'] = $this->conn->error;
+		}
+		return json_encode($resp);
+	}
+
+	/* Tenant Management Functions */
+	function save_tenant(){
+		extract($_POST);
+		$data = "";
+		foreach($_POST as $k =>$v){
+			if(!in_array($k,array('id'))){
+				if(!is_numeric($v))
+					$v = $this->conn->real_escape_string($v);
+				if(!empty($data)) $data .=",";
+				$data .= " `{$k}`='{$v}' ";
+			}
+		}
+		if(empty($id)){
+			$sql = "INSERT INTO `tenants` set {$data} ";
+		}else{
+			$sql = "UPDATE `tenants` set {$data} where id = '{$id}' ";
+		}
+		$check = $this->conn->query("SELECT * FROM `tenants` where `tenant_code` = '{$tenant_code}' and delete_flag = 0 ".($id > 0 ? " and id != '{$id}'" : ""))->num_rows;
+		if($check > 0){
+			$resp['status'] = 'failed';
+			$resp['msg'] = " Tenant Code already exists.";
+		}else{
+			$save = $this->conn->query($sql);
+			if($save){
+				$resp['status'] = 'success';
+				$resp['msg'] = empty($id) ? " Tenant added successfully." : " Tenant details updated successfully.";
+			}else{
+				$resp['status'] = 'failed';
+				$resp['msg'] = "An error occurred.";
+				$resp['err'] = $this->conn->error;
+			}
+		}
+		if($resp['status'] =='success')
+			$this->settings->set_flashdata('success',$resp['msg']);
+		return json_encode($resp);
+	}
+
+	function delete_tenant(){
+		extract($_POST);
+		$del = $this->conn->query("UPDATE `tenants` set delete_flag = 1 where id = '{$id}'");
+		if($del){
+			$resp['status'] = 'success';
+			$this->settings->set_flashdata('success'," Tenant deleted successfully.");
 		}else{
 			$resp['status'] = 'failed';
 			$resp['error'] = $this->conn->error;
@@ -636,6 +693,12 @@ switch ($action) {
 	break;
 	case 'delete_payroll':
 		echo $Master->delete_payroll();
+	break;
+	case 'save_tenant':
+		echo $Master->save_tenant();
+	break;
+	case 'delete_tenant':
+		echo $Master->delete_tenant();
 	break;
 	default:
 		// echo $sysset->index();

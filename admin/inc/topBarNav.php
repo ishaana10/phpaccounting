@@ -23,8 +23,24 @@
           </li>
         </ul>
         <!-- Right navbar links -->
-        <ul class="navbar-nav ml-auto">
-          <!-- Navbar Search -->
+        <ul class="navbar-nav ml-auto align-items-center">
+          <!-- Tenant Switcher Dropdown -->
+          <li class="nav-item mr-2">
+            <div class="input-group input-group-sm">
+              <div class="input-group-prepend">
+                <span class="input-group-text bg-primary text-white border-0"><i class="fas fa-building mr-1"></i> Tenant:</span>
+              </div>
+              <select id="tenant-switcher" class="form-control form-control-sm border-primary" style="max-width: 220px;">
+                <?php
+                $active_tenant = $_settings->active_tenant_id();
+                $tenants_qry = $conn->query("SELECT * FROM `tenants` WHERE delete_flag = 0 AND status = 1 ORDER BY name ASC");
+                while($trow = $tenants_qry->fetch_assoc()):
+                ?>
+                <option value="<?php echo $trow['id'] ?>" <?php echo $active_tenant == $trow['id'] ? 'selected' : '' ?>><?php echo $trow['name'] ?></option>
+                <?php endwhile; ?>
+              </select>
+            </div>
+          </li>
           <!-- <li class="nav-item">
             <a class="nav-link" data-widget="navbar-search" href="#" role="button">
             <i class="fas fa-search"></i>
@@ -71,3 +87,30 @@
         </ul>
       </nav>
       <!-- /.navbar -->
+      <script>
+        $(document).ready(function(){
+          $('#tenant-switcher').change(function(){
+            var tenant_id = $(this).val();
+            start_loader();
+            $.ajax({
+              url: _base_url_ + 'classes/SystemSettings.php?f=switch_tenant',
+              method: 'POST',
+              data: { tenant_id: tenant_id },
+              dataType: 'json',
+              success: function(resp){
+                if(resp.status == 'success'){
+                  location.reload();
+                } else {
+                  alert_toast('Failed to switch tenant.', 'error');
+                  end_loader();
+                }
+              },
+              error: function(err){
+                console.log(err);
+                alert_toast('An error occurred.', 'error');
+                end_loader();
+              }
+            });
+          });
+        });
+      </script>
