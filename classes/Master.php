@@ -525,7 +525,7 @@ Class Master extends DBConnection {
 
 		if(empty($id)){
 			// Insert new journal entry
-			$j_sql = "INSERT INTO `journal_entries` (`tenant_id`, `code`, `journal_date`, `description`, `user_id`, `status`) VALUES ('{$tenant_id}', '{$journal_code}', '{$journal_date}', '{$description}', '{$user_id}', 1)";
+			$j_sql = "INSERT INTO `journal_entries` (`tenant_id`, `code`, `journal_date`, `description`, `user_id`) VALUES ('{$tenant_id}', '{$journal_code}', '{$journal_date}', '{$description}', '{$user_id}')";
 			$this->conn->query($j_sql);
 			$journal_id = $this->conn->insert_id;
 

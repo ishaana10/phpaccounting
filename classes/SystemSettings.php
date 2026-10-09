@@ -13,10 +13,17 @@ class SystemSettings extends DBConnection{
 	function load_system_info(){
 		// if(!isset($_SESSION['system_info'])){
 			$sql = "SELECT * FROM system_info";
-			$qry = $this->conn->query($sql);
+			$qry = @$this->conn->query($sql);
+			if(!$qry){
+				// If system_info table is missing, trigger auto-installation of database schema
+				$this->auto_install_schema();
+				$qry = @$this->conn->query($sql);
+			}
+			if($qry){
 				while($row = $qry->fetch_assoc()){
 					$_SESSION['system_info'][$row['meta_field']] = $row['meta_value'];
 				}
+			}
 		// }
 	}
 	function update_system_info(){
