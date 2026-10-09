@@ -14,8 +14,10 @@ class DBConnection{
     public function __construct(){
 
         if (!isset($this->conn)) {
-            // Enable error reporting mode for mysqli exceptions handling
-            mysqli_report(MYSQLI_REPORT_OFF);
+            // Disable default mysqli exception throwing to handle errors gracefully
+            if (function_exists('mysqli_report')) {
+                mysqli_report(MYSQLI_REPORT_OFF);
+            }
 
             // Attempt connection to host and database
             @$this->conn = new mysqli($this->host, $this->username, $this->password, $this->database);
@@ -45,7 +47,7 @@ class DBConnection{
                 }
             }
 
-            // Auto-install schema if system_info or users table is missing
+            // Auto-install schema if system_info table is missing
             $check_tbl = @$this->conn->query("SHOW TABLES LIKE 'system_info'");
             if (!$check_tbl || $check_tbl->num_rows == 0) {
                 $this->auto_install_schema();
@@ -54,16 +56,25 @@ class DBConnection{
         
     }
 
-    private function auto_install_schema(){
+    public function auto_install_schema(){
         $sql_file = base_app . 'database/ajms_db.sql';
         if (file_exists($sql_file)) {
             $sql_content = file_get_contents($sql_file);
             if (!empty($sql_content)) {
-                $queries = explode(";\n", $sql_content);
-                foreach ($queries as $query) {
-                    $query = trim($query);
-                    if (!empty($query)) {
-                        @$this->conn->query($query);
+                if (@$this->conn->multi_query($sql_content)) {
+                    do {
+                        if ($result = $this->conn->store_result()) {
+                            $result->free();
+                        }
+                    } while ($this->conn->more_results() && $this->conn->next_result());
+                } else {
+                    // Fallback to split execution if multi_query is restricted
+                    $queries = preg_split("/;[\r\n]+/", $sql_content);
+                    foreach ($queries as $query) {
+                        $query = trim($query);
+                        if (!empty($query)) {
+                            @$this->conn->query($query);
+                        }
                     }
                 }
             }
