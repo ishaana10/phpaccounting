@@ -5,9 +5,9 @@
 <?php endif;?>
 <div class="card card-outline card-primary">
 	<div class="card-header">
-		<h3 class="card-title">List of Employees</h3>
+		<h3 class="card-title"><i class="fas fa-address-book text-primary"></i> Customers & Vendors List</h3>
 		<div class="card-tools">
-			<a href="javascript:void(0)" id="create_new" class="btn btn-flat btn-primary"><span class="fas fa-plus"></span> Create New Employee</a>
+			<a href="javascript:void(0)" id="create_new" class="btn btn-flat btn-primary btn-sm"><span class="fas fa-plus"></span> Add New Party</a>
 		</div>
 	</div>
 	<div class="card-body">
@@ -16,21 +16,19 @@
 				<colgroup>
 					<col width="5%">
 					<col width="12%">
-					<col width="18%">
-					<col width="18%">
-					<col width="15%">
+					<col width="23%">
 					<col width="12%">
+					<col width="23%">
 					<col width="10%">
-					<col width="10%">
+					<col width="15%">
 				</colgroup>
 				<thead>
 					<tr>
 						<th>#</th>
-						<th>Emp Code</th>
-						<th>Name</th>
-						<th>TIN / FNPF</th>
-						<th>Department / Designation</th>
-						<th>Monthly Salary</th>
+						<th>Code</th>
+						<th>Name / Company</th>
+						<th>Type</th>
+						<th>Contact Details</th>
 						<th>Status</th>
 						<th>Action</th>
 					</tr>
@@ -39,22 +37,25 @@
 					<?php
 					$i = 1;
 						$tenant_id = $_settings->active_tenant_id();
-						$qry = $conn->query("SELECT *, concat(firstname, ' ', lastname) as name from `employee_list` where tenant_id = '{$tenant_id}' and delete_flag = 0 order by id desc ");
+						$qry = $conn->query("SELECT * from `party_list` where tenant_id = '{$tenant_id}' and delete_flag = 0 order by id desc ");
 						while($row = $qry->fetch_assoc()):
 					?>
 						<tr>
 							<td class="text-center"><?php echo $i++; ?></td>
-							<td><b><?php echo $row['employee_code'] ?></b></td>
-							<td><?php echo $row['name'] ?></td>
+							<td><b><?php echo $row['party_code'] ?></b></td>
 							<td>
-								<small class="d-block"><b>TIN:</b> <?php echo !empty($row['tin']) ? $row['tin'] : 'N/A' ?></small>
-								<small class="d-block text-muted"><b>FNPF:</b> <?php echo !empty($row['fnpf_no']) ? $row['fnpf_no'] : 'N/A' ?></small>
+								<p class="m-0 font-weight-bold"><?php echo $row['name'] ?></p>
+								<small class="text-muted">TIN: <?php echo !empty($row['tin']) ? $row['tin'] : 'N/A' ?></small>
 							</td>
 							<td>
-								<p class="m-0"><?php echo $row['department'] ?></p>
-								<small class="text-muted"><?php echo $row['designation'] ?></small>
+								<span class="badge badge-<?php echo $row['type'] == 'customer' ? 'info' : 'warning' ?> px-2 py-1">
+									<?php echo ucfirst($row['type']) ?>
+								</span>
 							</td>
-							<td class="text-right font-weight-bold"><?php echo number_format($row['salary'], 2) ?> FJD</td>
+							<td>
+								<small class="d-block"><b>Email:</b> <?php echo !empty($row['email']) ? $row['email'] : 'N/A' ?></small>
+								<small class="d-block text-muted"><b>Phone:</b> <?php echo !empty($row['phone']) ? $row['phone'] : 'N/A' ?></small>
+							</td>
 							<td class="text-center">
                                 <?php if($row['status'] == 1): ?>
                                     <span class="badge badge-success px-3 rounded-pill">Active</span>
@@ -83,25 +84,25 @@
 <script>
 	$(document).ready(function(){
 		$('.delete_data').click(function(){
-			_conf("Are you sure to delete this Employee permanently?","delete_employee",[$(this).attr('data-id')])
+			_conf("Are you sure to delete this party permanently?","delete_party",[$(this).attr('data-id')])
 		})
 		$('#create_new').click(function(){
-			uni_modal("<i class='fa fa-plus'></i> Add New Employee","employees/manage_employee.php", 'large')
+			uni_modal("<i class='fa fa-plus'></i> Add New Customer / Vendor","parties/manage_party.php", 'large')
 		})
 		$('.edit_data').click(function(){
-			uni_modal("<i class='fa fa-edit'></i> Edit Employee","employees/manage_employee.php?id="+$(this).attr('data-id'), 'large')
+			uni_modal("<i class='fa fa-edit'></i> Edit Party Details","parties/manage_party.php?id="+$(this).attr('data-id'), 'large')
 		})
 		$('#list').dataTable({
 			columnDefs: [
-					{ orderable: false, targets: [6,7] }
+					{ orderable: false, targets: [6] }
 			],
 			order: [0, 'asc']
 		});
 	})
-	function delete_employee($id){
+	function delete_party($id){
 		start_loader();
 		$.ajax({
-			url:_base_url_+"classes/Master.php?f=delete_employee",
+			url:_base_url_+"classes/Master.php?f=delete_party",
 			method:"POST",
 			data:{id: $id},
 			dataType:"json",

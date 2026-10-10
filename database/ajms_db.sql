@@ -391,6 +391,12 @@ CREATE TABLE `employee_list` (
   `designation` varchar(100) DEFAULT NULL,
   `date_of_joining` date DEFAULT NULL,
   `salary` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `tin` varchar(50) DEFAULT NULL,
+  `fnpf_no` varchar(50) DEFAULT NULL,
+  `tax_code` varchar(10) NOT NULL DEFAULT 'P',
+  `is_resident` tinyint(1) NOT NULL DEFAULT 1,
+  `bank_code` varchar(20) DEFAULT 'bsp',
+  `bank_account` varchar(50) DEFAULT NULL,
   `status` tinyint(1) NOT NULL DEFAULT 1,
   `delete_flag` tinyint(1) NOT NULL DEFAULT 0,
   `date_created` datetime NOT NULL DEFAULT current_timestamp(),
@@ -450,16 +456,168 @@ CREATE TABLE `leave_list` (
 -- Table structure for table `payroll_list`
 --
 
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `party_list`
+--
+
+CREATE TABLE IF NOT EXISTS `party_list` (
+  `id` int(30) NOT NULL AUTO_INCREMENT,
+  `tenant_id` int(30) NOT NULL DEFAULT 1,
+  `party_code` varchar(50) NOT NULL,
+  `name` varchar(250) NOT NULL,
+  `type` enum('customer','vendor') NOT NULL DEFAULT 'customer',
+  `email` varchar(150) DEFAULT NULL,
+  `phone` varchar(50) DEFAULT NULL,
+  `tin` varchar(50) DEFAULT NULL,
+  `address` text DEFAULT NULL,
+  `status` tinyint(1) NOT NULL DEFAULT 1,
+  `delete_flag` tinyint(1) NOT NULL DEFAULT 0,
+  `date_created` datetime NOT NULL DEFAULT current_timestamp(),
+  `date_updated` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `tenant_id` (`tenant_id`),
+  UNIQUE KEY `party_tenant_code` (`tenant_id`, `party_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `invoice_list`
+--
+
+CREATE TABLE IF NOT EXISTS `invoice_list` (
+  `id` int(30) NOT NULL AUTO_INCREMENT,
+  `tenant_id` int(30) NOT NULL DEFAULT 1,
+  `invoice_no` varchar(100) NOT NULL,
+  `party_id` int(30) NOT NULL,
+  `invoice_date` date NOT NULL,
+  `due_date` date DEFAULT NULL,
+  `subtotal` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `tax_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `discount` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `total` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `paid_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `balance` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `status` enum('draft','unpaid','partially_paid','paid','cancelled') NOT NULL DEFAULT 'unpaid',
+  `notes` text DEFAULT NULL,
+  `journal_id` int(30) DEFAULT NULL,
+  `created_by` int(30) DEFAULT NULL,
+  `date_created` datetime NOT NULL DEFAULT current_timestamp(),
+  `date_updated` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `tenant_id` (`tenant_id`),
+  KEY `party_id` (`party_id`),
+  KEY `journal_id` (`journal_id`),
+  CONSTRAINT `invoice_party_fk` FOREIGN KEY (`party_id`) REFERENCES `party_list` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `invoice_items`
+--
+
+CREATE TABLE IF NOT EXISTS `invoice_items` (
+  `id` int(30) NOT NULL AUTO_INCREMENT,
+  `invoice_id` int(30) NOT NULL,
+  `item_name` varchar(250) NOT NULL,
+  `description` text DEFAULT NULL,
+  `qty` decimal(10,2) NOT NULL DEFAULT 1.00,
+  `unit_price` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `tax_rate` decimal(5,2) NOT NULL DEFAULT 0.00,
+  `tax_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `amount` decimal(12,2) NOT NULL DEFAULT 0.00,
+  PRIMARY KEY (`id`),
+  KEY `invoice_id` (`invoice_id`),
+  CONSTRAINT `item_invoice_fk` FOREIGN KEY (`invoice_id`) REFERENCES `invoice_list` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `payment_list`
+--
+
+CREATE TABLE IF NOT EXISTS `payment_list` (
+  `id` int(30) NOT NULL AUTO_INCREMENT,
+  `tenant_id` int(30) NOT NULL DEFAULT 1,
+  `payment_no` varchar(100) NOT NULL,
+  `type` enum('receipt','payment') NOT NULL DEFAULT 'receipt',
+  `party_id` int(30) NOT NULL,
+  `bank_account_id` int(30) DEFAULT NULL,
+  `payment_date` date NOT NULL,
+  `amount` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `method` varchar(50) NOT NULL DEFAULT 'cash',
+  `reference` varchar(100) DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `status` enum('draft','posted','cancelled') NOT NULL DEFAULT 'posted',
+  `currency` varchar(10) NOT NULL DEFAULT 'FJD',
+  `journal_id` int(30) DEFAULT NULL,
+  `created_by` int(30) DEFAULT NULL,
+  `date_created` datetime NOT NULL DEFAULT current_timestamp(),
+  `date_updated` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `tenant_id` (`tenant_id`),
+  KEY `party_id` (`party_id`),
+  KEY `journal_id` (`journal_id`),
+  CONSTRAINT `payment_party_fk` FOREIGN KEY (`party_id`) REFERENCES `party_list` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `payment_allocations`
+--
+
+CREATE TABLE IF NOT EXISTS `payment_allocations` (
+  `id` int(30) NOT NULL AUTO_INCREMENT,
+  `payment_id` int(30) NOT NULL,
+  `invoice_id` int(30) NOT NULL,
+  `amount` decimal(12,2) NOT NULL DEFAULT 0.00,
+  PRIMARY KEY (`id`),
+  KEY `payment_id` (`payment_id`),
+  KEY `invoice_id` (`invoice_id`),
+  CONSTRAINT `alloc_payment_fk` FOREIGN KEY (`payment_id`) REFERENCES `payment_list` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `alloc_invoice_fk` FOREIGN KEY (`invoice_id`) REFERENCES `invoice_list` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
 CREATE TABLE `payroll_list` (
   `id` int(30) NOT NULL AUTO_INCREMENT,
   `tenant_id` int(30) NOT NULL DEFAULT 1,
   `employee_id` int(30) NOT NULL,
   `journal_id` int(30) DEFAULT NULL,
-  `salary_month` varchar(20) NOT NULL,
+  `payroll_run_ref` varchar(100) DEFAULT NULL,
+  `salary_month` varchar(50) NOT NULL,
+  `pay_frequency` varchar(20) NOT NULL DEFAULT 'Monthly',
+  `pay_date` date DEFAULT NULL,
+  `period_start` date DEFAULT NULL,
+  `period_end` date DEFAULT NULL,
   `basic_salary` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `overtime` decimal(12,2) NOT NULL DEFAULT 0.00,
   `allowances` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `other_earnings` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `gross_salary` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `fnpf_base` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `employee_fnpf` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `employer_fnpf` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `taxable_income` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `paye_tax` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `srt_tax` decimal(12,2) NOT NULL DEFAULT 0.00,
   `deductions` decimal(12,2) NOT NULL DEFAULT 0.00,
   `net_salary` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `workcare_levy` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `training_levy` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `employer_cost` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `tin` varchar(50) DEFAULT NULL,
+  `fnpf_no` varchar(50) DEFAULT NULL,
+  `tax_code` varchar(10) DEFAULT 'P',
+  `is_resident` tinyint(1) DEFAULT 1,
+  `bank_code` varchar(20) DEFAULT NULL,
+  `bank_account` varchar(50) DEFAULT NULL,
   `status` tinyint(1) NOT NULL DEFAULT 1,
   `date_created` datetime NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
