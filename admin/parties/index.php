@@ -1,0 +1,124 @@
+<?php if($_settings->chk_flashdata('success')): ?>
+<script>
+	alert_toast("<?php echo $_settings->flashdata('success') ?>",'success')
+</script>
+<?php endif;?>
+<div class="card card-outline card-primary">
+	<div class="card-header">
+		<h3 class="card-title"><i class="fas fa-address-book text-primary"></i> Customers & Vendors List</h3>
+		<div class="card-tools">
+			<a href="javascript:void(0)" id="create_new" class="btn btn-flat btn-primary btn-sm"><span class="fas fa-plus"></span> Add New Party</a>
+		</div>
+	</div>
+	<div class="card-body">
+		<div class="container-fluid">
+			<table class="table table-hover table-striped table-bordered" id="list">
+				<colgroup>
+					<col width="5%">
+					<col width="12%">
+					<col width="23%">
+					<col width="12%">
+					<col width="23%">
+					<col width="10%">
+					<col width="15%">
+				</colgroup>
+				<thead>
+					<tr>
+						<th>#</th>
+						<th>Code</th>
+						<th>Name / Company</th>
+						<th>Type</th>
+						<th>Contact Details</th>
+						<th>Status</th>
+						<th>Action</th>
+					</tr>
+				</thead>
+				<tbody>
+					<?php
+					$i = 1;
+						$tenant_id = $_settings->active_tenant_id();
+						$qry = $conn->query("SELECT * from `party_list` where tenant_id = '{$tenant_id}' and delete_flag = 0 order by id desc ");
+						while($row = $qry->fetch_assoc()):
+					?>
+						<tr>
+							<td class="text-center"><?php echo $i++; ?></td>
+							<td><b><?php echo $row['party_code'] ?></b></td>
+							<td>
+								<p class="m-0 font-weight-bold"><?php echo $row['name'] ?></p>
+								<small class="text-muted">TIN: <?php echo !empty($row['tin']) ? $row['tin'] : 'N/A' ?></small>
+							</td>
+							<td>
+								<span class="badge badge-<?php echo $row['type'] == 'customer' ? 'info' : 'warning' ?> px-2 py-1">
+									<?php echo ucfirst($row['type']) ?>
+								</span>
+							</td>
+							<td>
+								<small class="d-block"><b>Email:</b> <?php echo !empty($row['email']) ? $row['email'] : 'N/A' ?></small>
+								<small class="d-block text-muted"><b>Phone:</b> <?php echo !empty($row['phone']) ? $row['phone'] : 'N/A' ?></small>
+							</td>
+							<td class="text-center">
+                                <?php if($row['status'] == 1): ?>
+                                    <span class="badge badge-success px-3 rounded-pill">Active</span>
+                                <?php else: ?>
+                                    <span class="badge badge-danger px-3 rounded-pill">Inactive</span>
+                                <?php endif; ?>
+                            </td>
+							<td align="center">
+								 <button type="button" class="btn btn-flat p-1 btn-default btn-sm dropdown-toggle dropdown-icon" data-toggle="dropdown">
+							Action
+				                    <span class="sr-only">Toggle Dropdown</span>
+				                  </button>
+				                  <div class="dropdown-menu" role="menu">
+				                    <a class="dropdown-item edit_data" href="javascript:void(0)" data-id="<?php echo $row['id'] ?>"><span class="fa fa-edit text-primary"></span> Edit</a>
+				                    <div class="dropdown-divider"></div>
+				                    <a class="dropdown-item delete_data" href="javascript:void(0)" data-id="<?php echo $row['id'] ?>"><span class="fa fa-trash text-danger"></span> Delete</a>
+				                  </div>
+							</td>
+						</tr>
+					<?php endwhile; ?>
+				</tbody>
+			</table>
+		</div>
+	</div>
+</div>
+<script>
+	$(document).ready(function(){
+		$('.delete_data').click(function(){
+			_conf("Are you sure to delete this party permanently?","delete_party",[$(this).attr('data-id')])
+		})
+		$('#create_new').click(function(){
+			uni_modal("<i class='fa fa-plus'></i> Add New Customer / Vendor","parties/manage_party.php", 'large')
+		})
+		$('.edit_data').click(function(){
+			uni_modal("<i class='fa fa-edit'></i> Edit Party Details","parties/manage_party.php?id="+$(this).attr('data-id'), 'large')
+		})
+		$('#list').dataTable({
+			columnDefs: [
+					{ orderable: false, targets: [6] }
+			],
+			order: [0, 'asc']
+		});
+	})
+	function delete_party($id){
+		start_loader();
+		$.ajax({
+			url:_base_url_+"classes/Master.php?f=delete_party",
+			method:"POST",
+			data:{id: $id},
+			dataType:"json",
+			error:err=>{
+				console.log(err)
+				alert_toast("An error occurred.",'error');
+				end_loader();
+			},
+			success:function(resp){
+				if(typeof resp== 'object' && resp.status == 'success'){
+					location.reload();
+				}else{
+					alert_toast("An error occurred.",'error');
+					end_loader();
+				}
+			}
+		})
+	}
+</script>

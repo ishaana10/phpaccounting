@@ -39,6 +39,31 @@
                         </p>
                       </a>
                     </li>
+                    <li class="nav-header">Invoicing & Sales</li>
+                    <li class="nav-item">
+                      <a href="<?php echo base_url ?>admin/?page=parties" class="nav-link text-light nav-parties">
+                        <i class="nav-icon fas fa-address-book"></i>
+                        <p>
+                          Customers & Vendors
+                        </p>
+                      </a>
+                    </li>
+                    <li class="nav-item">
+                      <a href="<?php echo base_url ?>admin/?page=invoices" class="nav-link text-light nav-invoices">
+                        <i class="nav-icon fas fa-file-invoice"></i>
+                        <p>
+                          Invoices
+                        </p>
+                      </a>
+                    </li>
+                    <li class="nav-item">
+                      <a href="<?php echo base_url ?>admin/?page=payments" class="nav-link text-light nav-payments">
+                        <i class="nav-icon fas fa-receipt"></i>
+                        <p>
+                          Payment Receipts
+                        </p>
+                      </a>
+                    </li>
                     <li class="nav-header">Payroll & Human Resources</li>
                     <li class="nav-item">
                       <a href="<?php echo base_url ?>admin/?page=employees" class="nav-link text-light nav-employees">

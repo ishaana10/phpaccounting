@@ -53,6 +53,7 @@ class DBConnection{
                 $this->auto_install_schema();
             } else {
                 $this->check_fiji_payroll_migrations();
+                $this->check_invoicing_migrations();
             }
         }    
         
@@ -110,6 +111,113 @@ class DBConnection{
             if ($res && $res->num_rows == 0) {
                 @$this->conn->query($sql);
             }
+        }
+    }
+
+    public function check_invoicing_migrations(){
+        if (!$this->conn) return;
+
+        $queries = array(
+            "CREATE TABLE IF NOT EXISTS `party_list` (
+              `id` int(30) NOT NULL AUTO_INCREMENT,
+              `tenant_id` int(30) NOT NULL DEFAULT 1,
+              `party_code` varchar(50) NOT NULL,
+              `name` varchar(250) NOT NULL,
+              `type` enum('customer','vendor') NOT NULL DEFAULT 'customer',
+              `email` varchar(150) DEFAULT NULL,
+              `phone` varchar(50) DEFAULT NULL,
+              `tin` varchar(50) DEFAULT NULL,
+              `address` text DEFAULT NULL,
+              `status` tinyint(1) NOT NULL DEFAULT 1,
+              `delete_flag` tinyint(1) NOT NULL DEFAULT 0,
+              `date_created` datetime NOT NULL DEFAULT current_timestamp(),
+              `date_updated` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+              PRIMARY KEY (`id`),
+              KEY `tenant_id` (`tenant_id`),
+              UNIQUE KEY `party_tenant_code` (`tenant_id`, `party_code`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+
+            "CREATE TABLE IF NOT EXISTS `invoice_list` (
+              `id` int(30) NOT NULL AUTO_INCREMENT,
+              `tenant_id` int(30) NOT NULL DEFAULT 1,
+              `invoice_no` varchar(100) NOT NULL,
+              `party_id` int(30) NOT NULL,
+              `invoice_date` date NOT NULL,
+              `due_date` date DEFAULT NULL,
+              `subtotal` decimal(12,2) NOT NULL DEFAULT 0.00,
+              `tax_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
+              `discount` decimal(12,2) NOT NULL DEFAULT 0.00,
+              `total` decimal(12,2) NOT NULL DEFAULT 0.00,
+              `paid_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
+              `balance` decimal(12,2) NOT NULL DEFAULT 0.00,
+              `status` enum('draft','unpaid','partially_paid','paid','cancelled') NOT NULL DEFAULT 'unpaid',
+              `notes` text DEFAULT NULL,
+              `journal_id` int(30) DEFAULT NULL,
+              `created_by` int(30) DEFAULT NULL,
+              `date_created` datetime NOT NULL DEFAULT current_timestamp(),
+              `date_updated` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+              PRIMARY KEY (`id`),
+              KEY `tenant_id` (`tenant_id`),
+              KEY `party_id` (`party_id`),
+              KEY `journal_id` (`journal_id`),
+              CONSTRAINT `invoice_party_fk` FOREIGN KEY (`party_id`) REFERENCES `party_list` (`id`) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+
+            "CREATE TABLE IF NOT EXISTS `invoice_items` (
+              `id` int(30) NOT NULL AUTO_INCREMENT,
+              `invoice_id` int(30) NOT NULL,
+              `item_name` varchar(250) NOT NULL,
+              `description` text DEFAULT NULL,
+              `qty` decimal(10,2) NOT NULL DEFAULT 1.00,
+              `unit_price` decimal(12,2) NOT NULL DEFAULT 0.00,
+              `tax_rate` decimal(5,2) NOT NULL DEFAULT 0.00,
+              `tax_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
+              `amount` decimal(12,2) NOT NULL DEFAULT 0.00,
+              PRIMARY KEY (`id`),
+              KEY `invoice_id` (`invoice_id`),
+              CONSTRAINT `item_invoice_fk` FOREIGN KEY (`invoice_id`) REFERENCES `invoice_list` (`id`) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+
+            "CREATE TABLE IF NOT EXISTS `payment_list` (
+              `id` int(30) NOT NULL AUTO_INCREMENT,
+              `tenant_id` int(30) NOT NULL DEFAULT 1,
+              `payment_no` varchar(100) NOT NULL,
+              `type` enum('receipt','payment') NOT NULL DEFAULT 'receipt',
+              `party_id` int(30) NOT NULL,
+              `bank_account_id` int(30) DEFAULT NULL,
+              `payment_date` date NOT NULL,
+              `amount` decimal(12,2) NOT NULL DEFAULT 0.00,
+              `method` varchar(50) NOT NULL DEFAULT 'cash',
+              `reference` varchar(100) DEFAULT NULL,
+              `notes` text DEFAULT NULL,
+              `status` enum('draft','posted','cancelled') NOT NULL DEFAULT 'posted',
+              `currency` varchar(10) NOT NULL DEFAULT 'FJD',
+              `journal_id` int(30) DEFAULT NULL,
+              `created_by` int(30) DEFAULT NULL,
+              `date_created` datetime NOT NULL DEFAULT current_timestamp(),
+              `date_updated` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+              PRIMARY KEY (`id`),
+              KEY `tenant_id` (`tenant_id`),
+              KEY `party_id` (`party_id`),
+              KEY `journal_id` (`journal_id`),
+              CONSTRAINT `payment_party_fk` FOREIGN KEY (`party_id`) REFERENCES `party_list` (`id`) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+
+            "CREATE TABLE IF NOT EXISTS `payment_allocations` (
+              `id` int(30) NOT NULL AUTO_INCREMENT,
+              `payment_id` int(30) NOT NULL,
+              `invoice_id` int(30) NOT NULL,
+              `amount` decimal(12,2) NOT NULL DEFAULT 0.00,
+              PRIMARY KEY (`id`),
+              KEY `payment_id` (`payment_id`),
+              KEY `invoice_id` (`invoice_id`),
+              CONSTRAINT `alloc_payment_fk` FOREIGN KEY (`payment_id`) REFERENCES `payment_list` (`id`) ON DELETE CASCADE,
+              CONSTRAINT `alloc_invoice_fk` FOREIGN KEY (`invoice_id`) REFERENCES `invoice_list` (`id`) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+        );
+
+        foreach ($queries as $sql) {
+            @$this->conn->query($sql);
         }
     }
 

@@ -72,6 +72,394 @@ Class Master extends DBConnection {
 		}
 		return json_encode($resp);
 	}
+
+	function save_payment(){
+		extract($_POST);
+		$tenant_id = $this->settings->active_tenant_id();
+		$user_id = $this->settings->userdata('id');
+
+		$payment_no = !empty($payment_no) ? $this->conn->real_escape_string($payment_no) : 'REC-'.date('Ym').'-'.rand(1000,9999);
+		$type = !empty($type) ? $this->conn->real_escape_string($type) : 'receipt';
+		$party_id = $this->conn->real_escape_string($party_id);
+		$bank_account_id = !empty($bank_account_id) ? (int)$bank_account_id : null;
+		$payment_date = !empty($payment_date) ? $this->conn->real_escape_string($payment_date) : date('Y-m-d');
+		$amount = isset($amount) ? (float)$amount : 0;
+		$method = !empty($method) ? $this->conn->real_escape_string($method) : 'cash';
+		$reference = isset($reference) ? $this->conn->real_escape_string($reference) : '';
+		$notes = isset($notes) ? $this->conn->real_escape_string($notes) : '';
+		$status = !empty($status) ? $this->conn->real_escape_string($status) : 'posted';
+		$currency = !empty($currency) ? $this->conn->real_escape_string($currency) : 'FJD';
+
+		// Get party details
+		$party_qry = $this->conn->query("SELECT * FROM `party_list` WHERE id = '{$party_id}' AND tenant_id = '{$tenant_id}'");
+		if(!$party_qry || $party_qry->num_rows == 0){
+			return json_encode(['status' => 'failed', 'msg' => 'Selected Customer / Party not found.']);
+		}
+		$party = $party_qry->fetch_assoc();
+
+		// Accounts for Journal Entry (Cash/Bank Dr, Accounts Receivable Cr)
+		$cash_acc = $this->conn->query("SELECT id FROM `account_list` WHERE `name` LIKE '%cash%' AND tenant_id = '{$tenant_id}' AND delete_flag = 0 LIMIT 1");
+		$cash_acc_id = !empty($bank_account_id) ? $bank_account_id : (($cash_acc && $cash_acc->num_rows > 0) ? $cash_acc->fetch_assoc()['id'] : 1);
+
+		$ar_acc = $this->conn->query("SELECT id FROM `account_list` WHERE (`name` LIKE '%receivable%' OR `name` LIKE '%asset%') AND tenant_id = '{$tenant_id}' AND delete_flag = 0 LIMIT 1");
+		$ar_acc_id = ($ar_acc && $ar_acc->num_rows > 0) ? $ar_acc->fetch_assoc()['id'] : 1;
+
+		// Create/Update Journal
+		$prefix = date("Ym-");
+		$code = sprintf("%'.05d",1);
+		while(true){
+			$check = $this->conn->query("SELECT * FROM `journal_entries` where `code` = '{$prefix}{$code}' and tenant_id = '{$tenant_id}' ")->num_rows;
+			if($check > 0){
+				$code = sprintf("%'.05d",ceil($code) + 1);
+			}else{
+				break;
+			}
+		}
+		$journal_code = $prefix.$code;
+		$journal_date = $payment_date;
+		$description = $this->conn->real_escape_string("Payment Receipt {$payment_no} from {$party['name']} - Amount: \${$amount}");
+
+		if(empty($id)){
+			$j_sql = "INSERT INTO `journal_entries` (`tenant_id`, `code`, `journal_date`, `description`, `user_id`) VALUES ('{$tenant_id}', '{$journal_code}', '{$journal_date}', '{$description}', '{$user_id}')";
+			$this->conn->query($j_sql);
+			$journal_id = $this->conn->insert_id;
+
+			$j_items = "INSERT INTO `journal_items` (`journal_id`, `account_id`, `group_id`, `amount`) VALUES
+				('{$journal_id}', '{$cash_acc_id}', '1', '{$amount}'),
+				('{$journal_id}', '{$ar_acc_id}', '2', '{$amount}')";
+			$this->conn->query($j_items);
+
+			$bank_account_sql = $bank_account_id ? "'{$bank_account_id}'" : "NULL";
+
+			$sql = "INSERT INTO `payment_list` SET
+				`tenant_id` = '{$tenant_id}',
+				`payment_no` = '{$payment_no}',
+				`type` = '{$type}',
+				`party_id` = '{$party_id}',
+				`bank_account_id` = {$bank_account_sql},
+				`payment_date` = '{$payment_date}',
+				`amount` = '{$amount}',
+				`method` = '{$method}',
+				`reference` = '{$reference}',
+				`notes` = '{$notes}',
+				`status` = '{$status}',
+				`currency` = '{$currency}',
+				`journal_id` = '{$journal_id}',
+				`created_by` = '{$user_id}'";
+			$save = $this->conn->query($sql);
+			$payment_id = $this->conn->insert_id;
+		} else {
+			$existing = $this->conn->query("SELECT journal_id FROM `payment_list` WHERE id = '{$id}'")->fetch_assoc();
+			$journal_id = isset($existing['journal_id']) ? $existing['journal_id'] : null;
+			if($journal_id){
+				$this->conn->query("UPDATE `journal_entries` SET `description` = '{$description}', `journal_date` = '{$journal_date}' WHERE id = '{$journal_id}'");
+				$this->conn->query("DELETE FROM `journal_items` WHERE journal_id = '{$journal_id}'");
+				$j_items = "INSERT INTO `journal_items` (`journal_id`, `account_id`, `group_id`, `amount`) VALUES
+					('{$journal_id}', '{$cash_acc_id}', '1', '{$amount}'),
+					('{$journal_id}', '{$ar_acc_id}', '2', '{$amount}')";
+				$this->conn->query($j_items);
+			}
+
+			$bank_account_sql = $bank_account_id ? "'{$bank_account_id}'" : "NULL";
+
+			$sql = "UPDATE `payment_list` SET
+				`payment_no` = '{$payment_no}',
+				`type` = '{$type}',
+				`party_id` = '{$party_id}',
+				`bank_account_id` = {$bank_account_sql},
+				`payment_date` = '{$payment_date}',
+				`amount` = '{$amount}',
+				`method` = '{$method}',
+				`reference` = '{$reference}',
+				`notes` = '{$notes}',
+				`status` = '{$status}',
+				`currency` = '{$currency}'
+				WHERE id = '{$id}' AND tenant_id = '{$tenant_id}'";
+			$save = $this->conn->query($sql);
+			$payment_id = $id;
+		}
+
+		if($save){
+			// Clear old allocations & recalculate affected invoice balances
+			$old_allocs = $this->conn->query("SELECT invoice_id FROM `payment_allocations` WHERE payment_id = '{$payment_id}'");
+			$affected_invoices = [];
+			while($oa = $old_allocs->fetch_assoc()){
+				$affected_invoices[] = $oa['invoice_id'];
+			}
+			$this->conn->query("DELETE FROM `payment_allocations` WHERE payment_id = '{$payment_id}'");
+
+			// Save Payment Allocations across invoice(s)
+			if(isset($invoice_alloc) && is_array($invoice_alloc)){
+				foreach($invoice_alloc as $inv_id => $alloc_amt){
+					$alloc_amt = (float)$alloc_amt;
+					if($alloc_amt <= 0) continue;
+
+					$inv_id = (int)$inv_id;
+					$affected_invoices[] = $inv_id;
+
+					$alloc_sql = "INSERT INTO `payment_allocations` SET
+						`payment_id` = '{$payment_id}',
+						`invoice_id` = '{$inv_id}',
+						`amount` = '{$alloc_amt}'";
+					$this->conn->query($alloc_sql);
+				}
+			}
+
+			// Update total paid and balance for all affected invoices
+			$affected_invoices = array_unique($affected_invoices);
+			foreach($affected_invoices as $inv_id){
+				$sum_alloc = $this->conn->query("SELECT SUM(amount) as total_paid FROM `payment_allocations` WHERE invoice_id = '{$inv_id}'")->fetch_assoc();
+				$tot_paid = isset($sum_alloc['total_paid']) ? (float)$sum_alloc['total_paid'] : 0;
+
+				$inv_data = $this->conn->query("SELECT total FROM `invoice_list` WHERE id = '{$inv_id}'")->fetch_assoc();
+				$inv_total = isset($inv_data['total']) ? (float)$inv_data['total'] : 0;
+
+				$new_bal = max(0, $inv_total - $tot_paid);
+				$new_status = 'unpaid';
+				if($tot_paid >= $inv_total && $inv_total > 0){
+					$new_status = 'paid';
+				} elseif($tot_paid > 0 && $tot_paid < $inv_total){
+					$new_status = 'partially_paid';
+				}
+
+				$this->conn->query("UPDATE `invoice_list` SET `paid_amount` = '{$tot_paid}', `balance` = '{$new_bal}', `status` = '{$new_status}' WHERE id = '{$inv_id}'");
+			}
+
+			$resp['status'] = 'success';
+			$resp['msg'] = empty($id) ? " Payment Receipt created and allocated successfully." : " Payment details updated successfully.";
+			$this->settings->set_flashdata('success', $resp['msg']);
+		} else {
+			$resp['status'] = 'failed';
+			$resp['msg'] = "An error occurred while saving payment.";
+			$resp['err'] = $this->conn->error;
+		}
+
+		return json_encode($resp);
+	}
+
+	function delete_payment(){
+		extract($_POST);
+		$id = $this->conn->real_escape_string($id);
+		$tenant_id = $this->settings->active_tenant_id();
+
+		// Get affected invoices before deleting
+		$old_allocs = $this->conn->query("SELECT invoice_id FROM `payment_allocations` WHERE payment_id = '{$id}'");
+		$affected_invoices = [];
+		while($oa = $old_allocs->fetch_assoc()){
+			$affected_invoices[] = $oa['invoice_id'];
+		}
+
+		$pay = $this->conn->query("SELECT journal_id FROM `payment_list` WHERE id = '{$id}' AND tenant_id = '{$tenant_id}'")->fetch_assoc();
+		if(!empty($pay['journal_id'])){
+			$this->conn->query("DELETE FROM `journal_entries` WHERE id = '{$pay['journal_id']}'");
+		}
+
+		$del = $this->conn->query("DELETE FROM `payment_list` WHERE id = '{$id}' AND tenant_id = '{$tenant_id}'");
+		if($del){
+			// Recalculate invoice balances
+			foreach(array_unique($affected_invoices) as $inv_id){
+				$sum_alloc = $this->conn->query("SELECT SUM(amount) as total_paid FROM `payment_allocations` WHERE invoice_id = '{$inv_id}'")->fetch_assoc();
+				$tot_paid = isset($sum_alloc['total_paid']) ? (float)$sum_alloc['total_paid'] : 0;
+
+				$inv_data = $this->conn->query("SELECT total FROM `invoice_list` WHERE id = '{$inv_id}'")->fetch_assoc();
+				$inv_total = isset($inv_data['total']) ? (float)$inv_data['total'] : 0;
+
+				$new_bal = max(0, $inv_total - $tot_paid);
+				$new_status = 'unpaid';
+				if($tot_paid >= $inv_total && $inv_total > 0){
+					$new_status = 'paid';
+				} elseif($tot_paid > 0 && $tot_paid < $inv_total){
+					$new_status = 'partially_paid';
+				}
+
+				$this->conn->query("UPDATE `invoice_list` SET `paid_amount` = '{$tot_paid}', `balance` = '{$new_bal}', `status` = '{$new_status}' WHERE id = '{$inv_id}'");
+			}
+
+			$resp['status'] = 'success';
+			$this->settings->set_flashdata('success', " Payment receipt deleted successfully.");
+		} else {
+			$resp['status'] = 'failed';
+			$resp['error'] = $this->conn->error;
+		}
+		return json_encode($resp);
+	}
+
+	function save_invoice(){
+		extract($_POST);
+		$tenant_id = $this->settings->active_tenant_id();
+		$user_id = $this->settings->userdata('id');
+
+		$invoice_no = !empty($invoice_no) ? $this->conn->real_escape_string($invoice_no) : 'INV-'.date('Ym').'-'.rand(1000,9999);
+		$party_id = $this->conn->real_escape_string($party_id);
+		$invoice_date = !empty($invoice_date) ? $this->conn->real_escape_string($invoice_date) : date('Y-m-d');
+		$due_date = !empty($due_date) ? $this->conn->real_escape_string($due_date) : date('Y-m-d', strtotime('+30 days'));
+		$subtotal = isset($subtotal) ? (float)$subtotal : 0;
+		$tax_amount = isset($tax_amount) ? (float)$tax_amount : 0;
+		$discount = isset($discount) ? (float)$discount : 0;
+		$total = isset($total) ? (float)$total : 0;
+		$notes = isset($notes) ? $this->conn->real_escape_string($notes) : '';
+		$status = !empty($status) ? $this->conn->real_escape_string($status) : 'unpaid';
+
+		// Get party details
+		$party_qry = $this->conn->query("SELECT * FROM `party_list` WHERE id = '{$party_id}' AND tenant_id = '{$tenant_id}'");
+		if(!$party_qry || $party_qry->num_rows == 0){
+			return json_encode(['status' => 'failed', 'msg' => 'Selected Customer / Party not found.']);
+		}
+		$party = $party_qry->fetch_assoc();
+
+		// Calculate paid_amount and balance
+		$paid_amount = 0;
+		if(!empty($id)){
+			$curr_inv = $this->conn->query("SELECT paid_amount FROM `invoice_list` WHERE id = '{$id}'")->fetch_assoc();
+			$paid_amount = isset($curr_inv['paid_amount']) ? (float)$curr_inv['paid_amount'] : 0;
+		}
+		$balance = max(0, $total - $paid_amount);
+		if($paid_amount >= $total && $total > 0){
+			$status = 'paid';
+		} elseif($paid_amount > 0 && $paid_amount < $total){
+			$status = 'partially_paid';
+		}
+
+		// Accounts for Journal Entry (Accounts Receivable Dr, Sales Revenue Cr)
+		$ar_acc = $this->conn->query("SELECT id FROM `account_list` WHERE (`name` LIKE '%receivable%' OR `name` LIKE '%asset%') AND tenant_id = '{$tenant_id}' AND delete_flag = 0 LIMIT 1");
+		$ar_acc_id = ($ar_acc && $ar_acc->num_rows > 0) ? $ar_acc->fetch_assoc()['id'] : 1;
+
+		$rev_acc = $this->conn->query("SELECT id FROM `account_list` WHERE (`name` LIKE '%sales%' OR `name` LIKE '%revenue%') AND tenant_id = '{$tenant_id}' AND delete_flag = 0 LIMIT 1");
+		$rev_acc_id = ($rev_acc && $rev_acc->num_rows > 0) ? $rev_acc->fetch_assoc()['id'] : 2;
+
+		// Create/Update Journal
+		$prefix = date("Ym-");
+		$code = sprintf("%'.05d",1);
+		while(true){
+			$check = $this->conn->query("SELECT * FROM `journal_entries` where `code` = '{$prefix}{$code}' and tenant_id = '{$tenant_id}' ")->num_rows;
+			if($check > 0){
+				$code = sprintf("%'.05d",ceil($code) + 1);
+			}else{
+				break;
+			}
+		}
+		$journal_code = $prefix.$code;
+		$journal_date = $invoice_date;
+		$description = $this->conn->real_escape_string("Sales Invoice {$invoice_no} to {$party['name']} - Total: \${$total}");
+
+		if(empty($id)){
+			$j_sql = "INSERT INTO `journal_entries` (`tenant_id`, `code`, `journal_date`, `description`, `user_id`) VALUES ('{$tenant_id}', '{$journal_code}', '{$journal_date}', '{$description}', '{$user_id}')";
+			$this->conn->query($j_sql);
+			$journal_id = $this->conn->insert_id;
+
+			$j_items = "INSERT INTO `journal_items` (`journal_id`, `account_id`, `group_id`, `amount`) VALUES
+				('{$journal_id}', '{$ar_acc_id}', '1', '{$total}'),
+				('{$journal_id}', '{$rev_acc_id}', '2', '{$total}')";
+			$this->conn->query($j_items);
+
+			$sql = "INSERT INTO `invoice_list` SET
+				`tenant_id` = '{$tenant_id}',
+				`invoice_no` = '{$invoice_no}',
+				`party_id` = '{$party_id}',
+				`invoice_date` = '{$invoice_date}',
+				`due_date` = '{$due_date}',
+				`subtotal` = '{$subtotal}',
+				`tax_amount` = '{$tax_amount}',
+				`discount` = '{$discount}',
+				`total` = '{$total}',
+				`paid_amount` = '{$paid_amount}',
+				`balance` = '{$balance}',
+				`status` = '{$status}',
+				`notes` = '{$notes}',
+				`journal_id` = '{$journal_id}',
+				`created_by` = '{$user_id}'";
+			$save = $this->conn->query($sql);
+			$invoice_id = $this->conn->insert_id;
+		} else {
+			$existing = $this->conn->query("SELECT journal_id FROM `invoice_list` WHERE id = '{$id}'")->fetch_assoc();
+			$journal_id = isset($existing['journal_id']) ? $existing['journal_id'] : null;
+			if($journal_id){
+				$this->conn->query("UPDATE `journal_entries` SET `description` = '{$description}', `journal_date` = '{$journal_date}' WHERE id = '{$journal_id}'");
+				$this->conn->query("DELETE FROM `journal_items` WHERE journal_id = '{$journal_id}'");
+				$j_items = "INSERT INTO `journal_items` (`journal_id`, `account_id`, `group_id`, `amount`) VALUES
+					('{$journal_id}', '{$ar_acc_id}', '1', '{$total}'),
+					('{$journal_id}', '{$rev_acc_id}', '2', '{$total}')";
+				$this->conn->query($j_items);
+			}
+
+			$sql = "UPDATE `invoice_list` SET
+				`invoice_no` = '{$invoice_no}',
+				`party_id` = '{$party_id}',
+				`invoice_date` = '{$invoice_date}',
+				`due_date` = '{$due_date}',
+				`subtotal` = '{$subtotal}',
+				`tax_amount` = '{$tax_amount}',
+				`discount` = '{$discount}',
+				`total` = '{$total}',
+				`paid_amount` = '{$paid_amount}',
+				`balance` = '{$balance}',
+				`status` = '{$status}',
+				`notes` = '{$notes}'
+				WHERE id = '{$id}' AND tenant_id = '{$tenant_id}'";
+			$save = $this->conn->query($sql);
+			$invoice_id = $id;
+		}
+
+		if($save){
+			// Save Invoice Line Items
+			$this->conn->query("DELETE FROM `invoice_items` WHERE invoice_id = '{$invoice_id}'");
+			if(isset($item_name) && is_array($item_name)){
+				foreach($item_name as $k => $v){
+					$i_name = $this->conn->real_escape_string($v);
+					if(empty($i_name)) continue;
+
+					$i_desc = isset($item_desc[$k]) ? $this->conn->real_escape_string($item_desc[$k]) : '';
+					$i_qty = isset($item_qty[$k]) ? (float)$item_qty[$k] : 1;
+					$i_price = isset($item_price[$k]) ? (float)$item_price[$k] : 0;
+					$i_tax_rate = isset($item_tax_rate[$k]) ? (float)$item_tax_rate[$k] : 0;
+					$i_tax_amt = round(($i_qty * $i_price) * ($i_tax_rate / 100), 2);
+					$i_amount = round(($i_qty * $i_price) + $i_tax_amt, 2);
+
+					$item_sql = "INSERT INTO `invoice_items` SET
+						`invoice_id` = '{$invoice_id}',
+						`item_name` = '{$i_name}',
+						`description` = '{$i_desc}',
+						`qty` = '{$i_qty}',
+						`unit_price` = '{$i_price}',
+						`tax_rate` = '{$i_tax_rate}',
+						`tax_amount` = '{$i_tax_amt}',
+						`amount` = '{$i_amount}'";
+					$this->conn->query($item_sql);
+				}
+			}
+
+			$resp['status'] = 'success';
+			$resp['msg'] = empty($id) ? " Invoice created successfully." : " Invoice updated successfully.";
+			$this->settings->set_flashdata('success', $resp['msg']);
+		} else {
+			$resp['status'] = 'failed';
+			$resp['msg'] = "An error occurred while saving invoice.";
+			$resp['err'] = $this->conn->error;
+		}
+
+		return json_encode($resp);
+	}
+
+	function delete_invoice(){
+		extract($_POST);
+		$id = $this->conn->real_escape_string($id);
+		$tenant_id = $this->settings->active_tenant_id();
+
+		$inv = $this->conn->query("SELECT journal_id FROM `invoice_list` WHERE id = '{$id}' AND tenant_id = '{$tenant_id}'")->fetch_assoc();
+		if(!empty($inv['journal_id'])){
+			$this->conn->query("DELETE FROM `journal_entries` WHERE id = '{$inv['journal_id']}'");
+		}
+
+		$del = $this->conn->query("DELETE FROM `invoice_list` WHERE id = '{$id}' AND tenant_id = '{$tenant_id}'");
+		if($del){
+			$resp['status'] = 'success';
+			$this->settings->set_flashdata('success', " Invoice deleted successfully.");
+		} else {
+			$resp['status'] = 'failed';
+			$resp['error'] = $this->conn->error;
+		}
+		return json_encode($resp);
+	}
 	function save_account(){
 		extract($_POST);
 		$tenant_id = $this->settings->active_tenant_id();
@@ -807,6 +1195,77 @@ Class Master extends DBConnection {
 		return json_encode($resp);
 	}
 
+	function save_party(){
+		extract($_POST);
+		$tenant_id = $this->settings->active_tenant_id();
+
+		$party_code = $this->conn->real_escape_string($party_code);
+		$name = $this->conn->real_escape_string($name);
+		$type = !empty($type) ? $this->conn->real_escape_string($type) : 'customer';
+		$email = isset($email) ? $this->conn->real_escape_string($email) : '';
+		$phone = isset($phone) ? $this->conn->real_escape_string($phone) : '';
+		$tin = isset($tin) ? $this->conn->real_escape_string($tin) : '';
+		$address = isset($address) ? $this->conn->real_escape_string($address) : '';
+		$status = isset($status) ? (int)$status : 1;
+
+		$check = $this->conn->query("SELECT * FROM `party_list` WHERE `party_code` = '{$party_code}' AND tenant_id = '{$tenant_id}' AND delete_flag = 0 " . (!empty($id) ? " AND id != '{$id}'" : ""))->num_rows;
+		if($check > 0){
+			return json_encode(['status' => 'failed', 'msg' => 'Party Code already exists.']);
+		}
+
+		if(empty($id)){
+			$sql = "INSERT INTO `party_list` SET
+				`tenant_id` = '{$tenant_id}',
+				`party_code` = '{$party_code}',
+				`name` = '{$name}',
+				`type` = '{$type}',
+				`email` = '{$email}',
+				`phone` = '{$phone}',
+				`tin` = '{$tin}',
+				`address` = '{$address}',
+				`status` = '{$status}'";
+		} else {
+			$sql = "UPDATE `party_list` SET
+				`party_code` = '{$party_code}',
+				`name` = '{$name}',
+				`type` = '{$type}',
+				`email` = '{$email}',
+				`phone` = '{$phone}',
+				`tin` = '{$tin}',
+				`address` = '{$address}',
+				`status` = '{$status}'
+				WHERE id = '{$id}' AND tenant_id = '{$tenant_id}'";
+		}
+
+		$save = $this->conn->query($sql);
+		if($save){
+			$resp['status'] = 'success';
+			$resp['msg'] = empty($id) ? " Party successfully created." : " Party details updated successfully.";
+			$this->settings->set_flashdata('success', $resp['msg']);
+		} else {
+			$resp['status'] = 'failed';
+			$resp['msg'] = "An error occurred while saving party.";
+			$resp['err'] = $this->conn->error;
+		}
+		return json_encode($resp);
+	}
+
+	function delete_party(){
+		extract($_POST);
+		$id = $this->conn->real_escape_string($id);
+		$tenant_id = $this->settings->active_tenant_id();
+
+		$del = $this->conn->query("UPDATE `party_list` SET `delete_flag` = 1 WHERE id = '{$id}' AND tenant_id = '{$tenant_id}'");
+		if($del){
+			$resp['status'] = 'success';
+			$this->settings->set_flashdata('success', " Party deleted successfully.");
+		} else {
+			$resp['status'] = 'failed';
+			$resp['error'] = $this->conn->error;
+		}
+		return json_encode($resp);
+	}
+
 	function delete_payroll(){
 		extract($_POST);
 		$id = $this->conn->real_escape_string($id);
@@ -949,6 +1408,24 @@ switch ($action) {
 	break;
 	case 'delete_payroll':
 		echo $Master->delete_payroll();
+	break;
+	case 'save_party':
+		echo $Master->save_party();
+	break;
+	case 'delete_party':
+		echo $Master->delete_party();
+	break;
+	case 'save_invoice':
+		echo $Master->save_invoice();
+	break;
+	case 'delete_invoice':
+		echo $Master->delete_invoice();
+	break;
+	case 'save_payment':
+		echo $Master->save_payment();
+	break;
+	case 'delete_payment':
+		echo $Master->delete_payment();
 	break;
 	case 'save_tenant':
 		echo $Master->save_tenant();
