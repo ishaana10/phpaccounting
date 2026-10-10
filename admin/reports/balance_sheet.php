@@ -15,8 +15,8 @@ $qry = $conn->query("
     INNER JOIN `group_list` g ON a.group_id = g.id
     LEFT JOIN `journal_items` ji ON ji.account_id = a.id
     LEFT JOIN `group_list` g2 ON ji.group_id = g2.id
-    LEFT JOIN `journal_entries` j ON ji.journal_id = j.id AND date(j.journal_date) <= '{$as_of}' AND j.tenant_id = '{$tenant_id}'
-    WHERE a.tenant_id = '{$tenant_id}' AND a.delete_flag = 0 AND g.name IN ('Assets', 'Liabilities', 'Equity')
+    INNER JOIN `journal_entries` j ON ji.journal_id = j.id
+    WHERE a.tenant_id = '{$tenant_id}' AND j.tenant_id = '{$tenant_id}' AND a.delete_flag = 0 AND date(j.journal_date) <= '{$as_of}' AND g.name IN ('Assets', 'Liabilities', 'Equity')
     GROUP BY a.id, a.name, g.name, g.type
     ORDER BY g.name ASC, a.name ASC
 ");
@@ -57,8 +57,8 @@ $pnl_qry = $conn->query("
     INNER JOIN `group_list` g ON a.group_id = g.id
     LEFT JOIN `journal_items` ji ON ji.account_id = a.id
     LEFT JOIN `group_list` g2 ON ji.group_id = g2.id
-    LEFT JOIN `journal_entries` j ON ji.journal_id = j.id AND date(j.journal_date) <= '{$as_of}' AND j.tenant_id = '{$tenant_id}'
-    WHERE a.tenant_id = '{$tenant_id}' AND a.delete_flag = 0 AND g.name IN ('Revenue', 'Expenses')
+    INNER JOIN `journal_entries` j ON ji.journal_id = j.id
+    WHERE a.tenant_id = '{$tenant_id}' AND j.tenant_id = '{$tenant_id}' AND a.delete_flag = 0 AND date(j.journal_date) <= '{$as_of}' AND g.name IN ('Revenue', 'Expenses')
     GROUP BY g.name
 ");
 

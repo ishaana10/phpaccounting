@@ -62,7 +62,9 @@ Class Master extends DBConnection {
 	}
 	function delete_group(){
 		extract($_POST);
-		$del = $this->conn->query("UPDATE `group_list` set delete_flag = 1 where id = '{$id}'");
+		$tenant_id = $this->settings->active_tenant_id();
+		$id = intval($id);
+		$del = $this->conn->query("UPDATE `group_list` set delete_flag = 1 where id = '{$id}' and tenant_id = '{$tenant_id}'");
 		if($del){
 			$resp['status'] = 'success';
 			$this->settings->set_flashdata('success'," Account's Group has been deleted successfully.");
@@ -912,7 +914,9 @@ Class Master extends DBConnection {
 	}
 	function delete_account(){
 		extract($_POST);
-		$del = $this->conn->query("UPDATE `account_list` set delete_flag = 1 where id = '{$id}'");
+		$tenant_id = $this->settings->active_tenant_id();
+		$id = intval($id);
+		$del = $this->conn->query("UPDATE `account_list` set delete_flag = 1 where id = '{$id}' and tenant_id = '{$tenant_id}'");
 		if($del){
 			$resp['status'] = 'success';
 			$this->settings->set_flashdata('success'," Account has been deleted successfully.");
@@ -1004,7 +1008,9 @@ Class Master extends DBConnection {
 	}
 	function delete_journal(){
 		extract($_POST);
-		$del = $this->conn->query("DELETE FROM `journal_entries` where id = '{$id}'");
+		$tenant_id = $this->settings->active_tenant_id();
+		$id = intval($id);
+		$del = $this->conn->query("DELETE FROM `journal_entries` where id = '{$id}' and tenant_id = '{$tenant_id}'");
 		if($del){
 			$resp['status'] = 'success';
 			$this->settings->set_flashdata('success'," Journal Entry has been deleted successfully.");
@@ -1153,8 +1159,9 @@ Class Master extends DBConnection {
 
 	function delete_employee(){
 		extract($_POST);
-		$id = $this->conn->real_escape_string($id);
-		$del = $this->conn->query("UPDATE `employee_list` set delete_flag = 1 where id = '{$id}'");
+		$tenant_id = $this->settings->active_tenant_id();
+		$id = intval($id);
+		$del = $this->conn->query("UPDATE `employee_list` set delete_flag = 1 where id = '{$id}' and tenant_id = '{$tenant_id}'");
 		if($del){
 			$resp['status'] = 'success';
 			$this->settings->set_flashdata('success'," Employee has been deleted successfully.");
@@ -1203,8 +1210,9 @@ Class Master extends DBConnection {
 
 	function delete_attendance(){
 		extract($_POST);
-		$id = $this->conn->real_escape_string($id);
-		$del = $this->conn->query("DELETE FROM `attendance_list` where id = '{$id}'");
+		$tenant_id = $this->settings->active_tenant_id();
+		$id = intval($id);
+		$del = $this->conn->query("DELETE FROM `attendance_list` where id = '{$id}' and tenant_id = '{$tenant_id}'");
 		if($del){
 			$resp['status'] = 'success';
 			$this->settings->set_flashdata('success'," Attendance record deleted successfully.");
@@ -1264,8 +1272,9 @@ Class Master extends DBConnection {
 
 	function delete_leave(){
 		extract($_POST);
-		$id = $this->conn->real_escape_string($id);
-		$del = $this->conn->query("DELETE FROM `leave_list` where id = '{$id}'");
+		$tenant_id = $this->settings->active_tenant_id();
+		$id = intval($id);
+		$del = $this->conn->query("DELETE FROM `leave_list` where id = '{$id}' and tenant_id = '{$tenant_id}'");
 		if($del){
 			$resp['status'] = 'success';
 			$this->settings->set_flashdata('success'," Leave request deleted successfully.");
@@ -1679,12 +1688,13 @@ Class Master extends DBConnection {
 
 	function delete_payroll(){
 		extract($_POST);
-		$id = $this->conn->real_escape_string($id);
-		$existing = $this->conn->query("SELECT journal_id FROM `payroll_list` WHERE id = '{$id}'")->fetch_assoc();
+		$tenant_id = $this->settings->active_tenant_id();
+		$id = intval($id);
+		$existing = $this->conn->query("SELECT journal_id FROM `payroll_list` WHERE id = '{$id}' and tenant_id = '{$tenant_id}'")->fetch_assoc();
 		if(!empty($existing['journal_id'])){
-			$this->conn->query("DELETE FROM `journal_entries` WHERE id = '{$existing['journal_id']}'");
+			$this->conn->query("DELETE FROM `journal_entries` WHERE id = '{$existing['journal_id']}' and tenant_id = '{$tenant_id}'");
 		}
-		$del = $this->conn->query("DELETE FROM `payroll_list` WHERE id = '{$id}'");
+		$del = $this->conn->query("DELETE FROM `payroll_list` WHERE id = '{$id}' and tenant_id = '{$tenant_id}'");
 		if($del){
 			$resp['status'] = 'success';
 			$this->settings->set_flashdata('success'," Payroll record deleted successfully.");
