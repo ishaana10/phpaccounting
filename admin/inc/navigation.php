@@ -39,7 +39,31 @@
                         </p>
                       </a>
                     </li>
-                    <li class="nav-header">Invoicing & Sales</li>
+                    <li class="nav-header">Commercial Stock & Sales</li>
+                    <li class="nav-item">
+                      <a href="<?php echo base_url ?>admin/?page=products" class="nav-link text-light nav-products">
+                        <i class="nav-icon fas fa-boxes"></i>
+                        <p>
+                          Products & Stock
+                        </p>
+                      </a>
+                    </li>
+                    <li class="nav-item">
+                      <a href="<?php echo base_url ?>admin/?page=sales_orders" class="nav-link text-light nav-sales_orders">
+                        <i class="nav-icon fas fa-mobile-alt"></i>
+                        <p>
+                          On-The-Go Orders / Proforma
+                        </p>
+                      </a>
+                    </li>
+                    <li class="nav-item">
+                      <a href="<?php echo base_url ?>admin/?page=stock_adjustments" class="nav-link text-light nav-stock_adjustments">
+                        <i class="nav-icon fas fa-cubes"></i>
+                        <p>
+                          Stock Movements & Ledger
+                        </p>
+                      </a>
+                    </li>
                     <li class="nav-item">
                       <a href="<?php echo base_url ?>admin/?page=parties" class="nav-link text-light nav-parties">
                         <i class="nav-icon fas fa-address-book"></i>
@@ -52,7 +76,7 @@
                       <a href="<?php echo base_url ?>admin/?page=invoices" class="nav-link text-light nav-invoices">
                         <i class="nav-icon fas fa-file-invoice"></i>
                         <p>
-                          Invoices
+                          Sales Invoices
                         </p>
                       </a>
                     </li>

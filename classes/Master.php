@@ -73,6 +73,414 @@ Class Master extends DBConnection {
 		return json_encode($resp);
 	}
 
+	function save_stock_adjustment(){
+		extract($_POST);
+		$tenant_id = $this->settings->active_tenant_id();
+		$user_id = $this->settings->userdata('id');
+
+		$product_id = (int)$product_id;
+		$type = !empty($type) ? $this->conn->real_escape_string($type) : 'in';
+		$qty = (float)$qty;
+		$unit_cost = isset($unit_cost) ? (float)$unit_cost : 0;
+		$reference = isset($reference) ? $this->conn->real_escape_string($reference) : 'Stock Adj '.date('Ymd');
+		$notes = isset($notes) ? $this->conn->real_escape_string($notes) : '';
+
+		if($product_id <= 0 || $qty <= 0){
+			return json_encode(['status' => 'failed', 'msg' => 'Please select a product and enter a valid positive quantity.']);
+		}
+
+		$prod_qry = $this->conn->query("SELECT * FROM `product_list` WHERE id = '{$product_id}' AND tenant_id = '{$tenant_id}'");
+		if(!$prod_qry || $prod_qry->num_rows == 0){
+			return json_encode(['status' => 'failed', 'msg' => 'Selected product not found.']);
+		}
+
+		// Update stock quantity: type 'in' adds, 'out' subtracts, 'adjustment' sets or adds
+		if($type == 'in'){
+			$this->conn->query("UPDATE `product_list` SET `stock_quantity` = `stock_quantity` + {$qty} WHERE id = '{$product_id}'");
+		} elseif($type == 'out'){
+			$this->conn->query("UPDATE `product_list` SET `stock_quantity` = `stock_quantity` - {$qty} WHERE id = '{$product_id}'");
+		} elseif($type == 'adjustment'){
+			if(isset($_POST['is_absolute']) && $_POST['is_absolute'] == 1){
+				$this->conn->query("UPDATE `product_list` SET `stock_quantity` = '{$qty}' WHERE id = '{$product_id}'");
+			} else {
+				$this->conn->query("UPDATE `product_list` SET `stock_quantity` = `stock_quantity` + {$qty} WHERE id = '{$product_id}'");
+			}
+		}
+
+		// Insert inventory log
+		$save_log = $this->conn->query("INSERT INTO `inventory_logs` SET
+			`tenant_id` = '{$tenant_id}',
+			`product_id` = '{$product_id}',
+			`type` = '{$type}',
+			`qty` = '{$qty}',
+			`unit_cost` = '{$unit_cost}',
+			`reference` = '{$reference}',
+			`notes` = '{$notes}',
+			`created_by` = '{$user_id}'");
+
+		if($save_log){
+			$resp['status'] = 'success';
+			$resp['msg'] = " Stock adjustment saved successfully.";
+			$this->settings->set_flashdata('success', $resp['msg']);
+		} else {
+			$resp['status'] = 'failed';
+			$resp['msg'] = "An error occurred while saving stock adjustment.";
+			$resp['err'] = $this->conn->error;
+		}
+
+		return json_encode($resp);
+	}
+
+	function save_sales_order(){
+		extract($_POST);
+		$tenant_id = $this->settings->active_tenant_id();
+		$user_id = $this->settings->userdata('id');
+		$id = !empty($id) ? $this->conn->real_escape_string($id) : '';
+
+		$order_no = !empty($order_no) ? $this->conn->real_escape_string($order_no) : 'SO-'.date('Ym').'-'.rand(1000,9999);
+		$party_id = $this->conn->real_escape_string($party_id);
+		$order_date = !empty($order_date) ? $this->conn->real_escape_string($order_date) : date('Y-m-d');
+		$type = !empty($type) ? $this->conn->real_escape_string($type) : 'proforma';
+		$subtotal = isset($subtotal) ? (float)$subtotal : 0;
+		$tax_amount = isset($tax_amount) ? (float)$tax_amount : 0;
+		$discount = isset($discount) ? (float)$discount : 0;
+		$total = isset($total) ? (float)$total : 0;
+		$notes = isset($notes) ? $this->conn->real_escape_string($notes) : '';
+		$status = !empty($status) ? $this->conn->real_escape_string($status) : 'proforma';
+
+		if(empty($id)){
+			$sql = "INSERT INTO `sales_order_list` SET
+				`tenant_id` = '{$tenant_id}',
+				`order_no` = '{$order_no}',
+				`party_id` = '{$party_id}',
+				`order_date` = '{$order_date}',
+				`type` = '{$type}',
+				`subtotal` = '{$subtotal}',
+				`tax_amount` = '{$tax_amount}',
+				`discount` = '{$discount}',
+				`total` = '{$total}',
+				`status` = '{$status}',
+				`notes` = '{$notes}',
+				`created_by` = '{$user_id}'";
+			$save = $this->conn->query($sql);
+			$sales_order_id = $this->conn->insert_id;
+		} else {
+			$sql = "UPDATE `sales_order_list` SET
+				`order_no` = '{$order_no}',
+				`party_id` = '{$party_id}',
+				`order_date` = '{$order_date}',
+				`type` = '{$type}',
+				`subtotal` = '{$subtotal}',
+				`tax_amount` = '{$tax_amount}',
+				`discount` = '{$discount}',
+				`total` = '{$total}',
+				`status` = '{$status}',
+				`notes` = '{$notes}'
+				WHERE id = '{$id}' AND tenant_id = '{$tenant_id}'";
+			$save = $this->conn->query($sql);
+			$sales_order_id = $id;
+		}
+
+		if($save){
+			// Save Order Items
+			$this->conn->query("DELETE FROM `sales_order_items` WHERE sales_order_id = '{$sales_order_id}'");
+			if(isset($item_name) && is_array($item_name)){
+				foreach($item_name as $k => $v){
+					$i_name = $this->conn->real_escape_string($v);
+					if(empty($i_name)) continue;
+
+					$p_id = isset($product_id[$k]) && is_numeric($product_id[$k]) ? (int)$product_id[$k] : 'NULL';
+					$i_desc = isset($item_desc[$k]) ? $this->conn->real_escape_string($item_desc[$k]) : '';
+					$i_qty = isset($item_qty[$k]) ? (float)$item_qty[$k] : 1;
+					$i_price = isset($item_price[$k]) ? (float)$item_price[$k] : 0;
+					$i_tax_rate = isset($item_tax_rate[$k]) ? (float)$item_tax_rate[$k] : 0;
+					$i_tax_amt = round(($i_qty * $i_price) * ($i_tax_rate / 100), 2);
+					$i_amount = round(($i_qty * $i_price) + $i_tax_amt, 2);
+
+					$item_sql = "INSERT INTO `sales_order_items` SET
+						`sales_order_id` = '{$sales_order_id}',
+						`product_id` = {$p_id},
+						`item_name` = '{$i_name}',
+						`description` = '{$i_desc}',
+						`qty` = '{$i_qty}',
+						`unit_price` = '{$i_price}',
+						`tax_rate` = '{$i_tax_rate}',
+						`tax_amount` = '{$i_tax_amt}',
+						`amount` = '{$i_amount}'";
+					$this->conn->query($item_sql);
+				}
+			}
+
+			// If status is confirmed/converted, auto adjust stock
+			if($status == 'confirmed' || $status == 'converted_to_invoice'){
+				$this->confirm_sales_order_internal($sales_order_id);
+			}
+
+			$resp['status'] = 'success';
+			$resp['msg'] = empty($id) ? " Sales Order / Proforma Invoice created successfully." : " Order details updated successfully.";
+			$this->settings->set_flashdata('success', $resp['msg']);
+		} else {
+			$resp['status'] = 'failed';
+			$resp['msg'] = "An error occurred while saving sales order.";
+			$resp['err'] = $this->conn->error;
+		}
+
+		return json_encode($resp);
+	}
+
+	function confirm_sales_order_internal($sales_order_id){
+		$tenant_id = $this->settings->active_tenant_id();
+		$user_id = $this->settings->userdata('id');
+
+		$order_qry = $this->conn->query("SELECT * FROM `sales_order_list` WHERE id = '{$sales_order_id}' AND tenant_id = '{$tenant_id}'");
+		if(!$order_qry || $order_qry->num_rows == 0) return false;
+
+		$order = $order_qry->fetch_assoc();
+
+		// Auto stock adjustment if not yet adjusted
+		if($order['stock_adjusted'] == 0){
+			$items = $this->conn->query("SELECT * FROM `sales_order_items` WHERE sales_order_id = '{$sales_order_id}'");
+			$total_cogs = 0;
+
+			while($item = $items->fetch_assoc()){
+				$pid = (int)$item['product_id'];
+				$qty = (float)$item['qty'];
+
+				if($pid > 0 && $qty > 0){
+					$prod = $this->conn->query("SELECT cost_price, stock_quantity FROM `product_list` WHERE id = '{$pid}'")->fetch_assoc();
+					$cost = isset($prod['cost_price']) ? (float)$prod['cost_price'] : 0;
+					$total_cogs += ($cost * $qty);
+
+					// Deduct stock
+					$this->conn->query("UPDATE `product_list` SET `stock_quantity` = `stock_quantity` - {$qty} WHERE id = '{$pid}'");
+
+					// Log inventory movement
+					$this->conn->query("INSERT INTO `inventory_logs` SET
+						`tenant_id` = '{$tenant_id}',
+						`product_id` = '{$pid}',
+						`type` = 'out',
+						`qty` = '{$qty}',
+						`unit_cost` = '{$cost}',
+						`reference` = '" . $this->conn->real_escape_string($order['order_no']) . "',
+						`notes` = 'Auto stock deduction on sales order confirmation',
+						`created_by` = '{$user_id}'");
+				}
+			}
+
+			// Mark stock adjusted
+			$this->conn->query("UPDATE `sales_order_list` SET `stock_adjusted` = 1, `status` = 'confirmed' WHERE id = '{$sales_order_id}'");
+
+			// Convert to Sales Invoice if not created
+			if(empty($order['invoice_id'])){
+				$inv_no = 'INV-'.str_replace(['SO-', 'PRO-'], '', $order['order_no']);
+
+				// Accounts
+				$ar_acc = $this->conn->query("SELECT id FROM `account_list` WHERE (`name` LIKE '%receivable%' OR `name` LIKE '%asset%') AND tenant_id = '{$tenant_id}' AND delete_flag = 0 LIMIT 1");
+				$ar_acc_id = ($ar_acc && $ar_acc->num_rows > 0) ? $ar_acc->fetch_assoc()['id'] : 1;
+
+				$rev_acc = $this->conn->query("SELECT id FROM `account_list` WHERE (`name` LIKE '%sales%' OR `name` LIKE '%revenue%') AND tenant_id = '{$tenant_id}' AND delete_flag = 0 LIMIT 1");
+				$rev_acc_id = ($rev_acc && $rev_acc->num_rows > 0) ? $rev_acc->fetch_assoc()['id'] : 2;
+
+				// Create Journal Entry
+				$prefix = date("Ym-");
+				$code = sprintf("%'.05d",1);
+				while(true){
+					$check = $this->conn->query("SELECT * FROM `journal_entries` where `code` = '{$prefix}{$code}' and tenant_id = '{$tenant_id}' ")->num_rows;
+					if($check > 0){
+						$code = sprintf("%'.05d",ceil($code) + 1);
+					}else{
+						break;
+					}
+				}
+				$journal_code = $prefix.$code;
+				$journal_date = $order['order_date'];
+				$description = $this->conn->real_escape_string("Sales Invoice {$inv_no} from Order {$order['order_no']}");
+
+				$j_sql = "INSERT INTO `journal_entries` (`tenant_id`, `code`, `journal_date`, `description`, `user_id`) VALUES ('{$tenant_id}', '{$journal_code}', '{$journal_date}', '{$description}', '{$user_id}')";
+				$this->conn->query($j_sql);
+				$journal_id = $this->conn->insert_id;
+
+				$j_items = "INSERT INTO `journal_items` (`journal_id`, `account_id`, `group_id`, `amount`) VALUES
+					('{$journal_id}', '{$ar_acc_id}', '1', '{$order['total']}'),
+					('{$journal_id}', '{$rev_acc_id}', '2', '{$order['total']}')";
+				$this->conn->query($j_items);
+
+				// Insert Invoice
+				$inv_sql = "INSERT INTO `invoice_list` SET
+					`tenant_id` = '{$tenant_id}',
+					`invoice_no` = '{$inv_no}',
+					`party_id` = '{$order['party_id']}',
+					`invoice_date` = '{$order['order_date']}',
+					`due_date` = '" . date('Y-m-d', strtotime($order['order_date'] . ' +30 days')) . "',
+					`subtotal` = '{$order['subtotal']}',
+					`tax_amount` = '{$order['tax_amount']}',
+					`discount` = '{$order['discount']}',
+					`total` = '{$order['total']}',
+					`paid_amount` = '0.00',
+					`balance` = '{$order['total']}',
+					`status` = 'unpaid',
+					`notes` = '" . $this->conn->real_escape_string($order['notes']) . "',
+					`journal_id` = '{$journal_id}',
+					`created_by` = '{$user_id}'";
+				$this->conn->query($inv_sql);
+				$invoice_id = $this->conn->insert_id;
+
+				// Copy Items to Invoice
+				$items2 = $this->conn->query("SELECT * FROM `sales_order_items` WHERE sales_order_id = '{$sales_order_id}'");
+				while($it2 = $items2->fetch_assoc()){
+					$this->conn->query("INSERT INTO `invoice_items` SET
+						`invoice_id` = '{$invoice_id}',
+						`item_name` = '" . $this->conn->real_escape_string($it2['item_name']) . "',
+						`description` = '" . $this->conn->real_escape_string($it2['description']) . "',
+						`qty` = '{$it2['qty']}',
+						`unit_price` = '{$it2['unit_price']}',
+						`tax_rate` = '{$it2['tax_rate']}',
+						`tax_amount` = '{$it2['tax_amount']}',
+						`amount` = '{$it2['amount']}'");
+				}
+
+				// Update order with invoice link
+				$this->conn->query("UPDATE `sales_order_list` SET `invoice_id` = '{$invoice_id}', `status` = 'converted_to_invoice' WHERE id = '{$sales_order_id}'");
+			}
+		}
+		return true;
+	}
+
+	function confirm_sales_order(){
+		extract($_POST);
+		$id = $this->conn->real_escape_string($id);
+		if($this->confirm_sales_order_internal($id)){
+			$resp['status'] = 'success';
+			$resp['msg'] = " Sale confirmed, auto stock adjusted, and converted to Sales Invoice successfully.";
+			$this->settings->set_flashdata('success', $resp['msg']);
+		} else {
+			$resp['status'] = 'failed';
+			$resp['msg'] = "An error occurred while confirming order.";
+		}
+		return json_encode($resp);
+	}
+
+	function delete_sales_order(){
+		extract($_POST);
+		$id = $this->conn->real_escape_string($id);
+		$tenant_id = $this->settings->active_tenant_id();
+
+		$order = $this->conn->query("SELECT * FROM `sales_order_list` WHERE id = '{$id}' AND tenant_id = '{$tenant_id}'")->fetch_assoc();
+		if($order){
+			// If stock was adjusted, restore stock
+			if($order['stock_adjusted'] == 1){
+				$items = $this->conn->query("SELECT * FROM `sales_order_items` WHERE sales_order_id = '{$id}'");
+				while($it = $items->fetch_assoc()){
+					$pid = (int)$it['product_id'];
+					$qty = (float)$it['qty'];
+					if($pid > 0 && $qty > 0){
+						$this->conn->query("UPDATE `product_list` SET `stock_quantity` = `stock_quantity` + {$qty} WHERE id = '{$pid}'");
+					}
+				}
+			}
+			$this->conn->query("DELETE FROM `sales_order_list` WHERE id = '{$id}' AND tenant_id = '{$tenant_id}'");
+			$resp['status'] = 'success';
+			$this->settings->set_flashdata('success', " Order deleted successfully.");
+		} else {
+			$resp['status'] = 'failed';
+			$resp['msg'] = "Order not found.";
+		}
+		return json_encode($resp);
+	}
+
+	function save_product(){
+		extract($_POST);
+		$tenant_id = $this->settings->active_tenant_id();
+		$id = !empty($id) ? $this->conn->real_escape_string($id) : '';
+
+		$product_code = $this->conn->real_escape_string($product_code);
+		$name = $this->conn->real_escape_string($name);
+		$category = isset($category) ? $this->conn->real_escape_string($category) : '';
+		$unit = !empty($unit) ? $this->conn->real_escape_string($unit) : 'pcs';
+		$cost_price = isset($cost_price) ? (float)$cost_price : 0;
+		$selling_price = isset($selling_price) ? (float)$selling_price : 0;
+		$stock_quantity = isset($stock_quantity) ? (float)$stock_quantity : 0;
+		$reorder_level = isset($reorder_level) ? (float)$reorder_level : 10;
+		$description = isset($description) ? $this->conn->real_escape_string($description) : '';
+		$status = isset($status) ? (int)$status : 1;
+
+		$check = $this->conn->query("SELECT * FROM `product_list` WHERE `product_code` = '{$product_code}' AND tenant_id = '{$tenant_id}' AND delete_flag = 0 " . (!empty($id) ? " AND id != '{$id}'" : ""))->num_rows;
+		if($check > 0){
+			return json_encode(['status' => 'failed', 'msg' => 'Product Code already exists.']);
+		}
+
+		if(empty($id)){
+			$sql = "INSERT INTO `product_list` SET
+				`tenant_id` = '{$tenant_id}',
+				`product_code` = '{$product_code}',
+				`name` = '{$name}',
+				`category` = '{$category}',
+				`unit` = '{$unit}',
+				`cost_price` = '{$cost_price}',
+				`selling_price` = '{$selling_price}',
+				`stock_quantity` = '{$stock_quantity}',
+				`reorder_level` = '{$reorder_level}',
+				`description` = '{$description}',
+				`status` = '{$status}'";
+			$save = $this->conn->query($sql);
+			$product_id = $this->conn->insert_id;
+
+			if($save && $stock_quantity > 0){
+				// Log initial stock entry
+				$this->conn->query("INSERT INTO `inventory_logs` SET
+					`tenant_id` = '{$tenant_id}',
+					`product_id` = '{$product_id}',
+					`type` = 'in',
+					`qty` = '{$stock_quantity}',
+					`unit_cost` = '{$cost_price}',
+					`reference` = 'Initial Stock',
+					`notes` = 'Initial opening stock entry',
+					`created_by` = '" . $this->settings->userdata('id') . "'");
+			}
+		} else {
+			$sql = "UPDATE `product_list` SET
+				`product_code` = '{$product_code}',
+				`name` = '{$name}',
+				`category` = '{$category}',
+				`unit` = '{$unit}',
+				`cost_price` = '{$cost_price}',
+				`selling_price` = '{$selling_price}',
+				`reorder_level` = '{$reorder_level}',
+				`description` = '{$description}',
+				`status` = '{$status}'
+				WHERE id = '{$id}' AND tenant_id = '{$tenant_id}'";
+			$save = $this->conn->query($sql);
+		}
+
+		if($save){
+			$resp['status'] = 'success';
+			$resp['msg'] = empty($id) ? " Product added successfully." : " Product details updated successfully.";
+			$this->settings->set_flashdata('success', $resp['msg']);
+		} else {
+			$resp['status'] = 'failed';
+			$resp['msg'] = "An error occurred while saving product.";
+			$resp['err'] = $this->conn->error;
+		}
+
+		return json_encode($resp);
+	}
+
+	function delete_product(){
+		extract($_POST);
+		$id = $this->conn->real_escape_string($id);
+		$tenant_id = $this->settings->active_tenant_id();
+
+		$del = $this->conn->query("UPDATE `product_list` SET `delete_flag` = 1 WHERE id = '{$id}' AND tenant_id = '{$tenant_id}'");
+		if($del){
+			$resp['status'] = 'success';
+			$this->settings->set_flashdata('success', " Product deleted successfully.");
+		} else {
+			$resp['status'] = 'failed';
+			$resp['error'] = $this->conn->error;
+		}
+		return json_encode($resp);
+	}
+
 	function save_payment(){
 		extract($_POST);
 		$tenant_id = $this->settings->active_tenant_id();
@@ -1429,6 +1837,24 @@ switch ($action) {
 	break;
 	case 'delete_payment':
 		echo $Master->delete_payment();
+	break;
+	case 'save_product':
+		echo $Master->save_product();
+	break;
+	case 'delete_product':
+		echo $Master->delete_product();
+	break;
+	case 'save_sales_order':
+		echo $Master->save_sales_order();
+	break;
+	case 'confirm_sales_order':
+		echo $Master->confirm_sales_order();
+	break;
+	case 'delete_sales_order':
+		echo $Master->delete_sales_order();
+	break;
+	case 'save_stock_adjustment':
+		echo $Master->save_stock_adjustment();
 	break;
 	case 'save_tenant':
 		echo $Master->save_tenant();
