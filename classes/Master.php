@@ -77,6 +77,7 @@ Class Master extends DBConnection {
 		extract($_POST);
 		$tenant_id = $this->settings->active_tenant_id();
 		$user_id = $this->settings->userdata('id');
+		$id = !empty($id) ? $this->conn->real_escape_string($id) : '';
 
 		$payment_no = !empty($payment_no) ? $this->conn->real_escape_string($payment_no) : 'REC-'.date('Ym').'-'.rand(1000,9999);
 		$type = !empty($type) ? $this->conn->real_escape_string($type) : 'receipt';
@@ -288,6 +289,7 @@ Class Master extends DBConnection {
 		extract($_POST);
 		$tenant_id = $this->settings->active_tenant_id();
 		$user_id = $this->settings->userdata('id');
+		$id = !empty($id) ? $this->conn->real_escape_string($id) : '';
 
 		$invoice_no = !empty($invoice_no) ? $this->conn->real_escape_string($invoice_no) : 'INV-'.date('Ym').'-'.rand(1000,9999);
 		$party_id = $this->conn->real_escape_string($party_id);
@@ -1198,6 +1200,7 @@ Class Master extends DBConnection {
 	function save_party(){
 		extract($_POST);
 		$tenant_id = $this->settings->active_tenant_id();
+		$id = !empty($id) ? $this->conn->real_escape_string($id) : '';
 
 		$party_code = $this->conn->real_escape_string($party_code);
 		$name = $this->conn->real_escape_string($name);

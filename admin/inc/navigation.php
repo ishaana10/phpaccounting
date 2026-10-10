@@ -97,7 +97,47 @@
                         </p>
                       </a>
                     </li>
-                    <li class="nav-header">Report</li>
+                    <li class="nav-header">Financial Statements & Reports</li>
+                    <li class="nav-item">
+                      <a href="<?php echo base_url ?>admin/?page=reports/general_ledger" class="nav-link text-light nav-reports_general_ledger">
+                        <i class="nav-icon fas fa-book-open"></i>
+                        <p>
+                          General Ledger
+                        </p>
+                      </a>
+                    </li>
+                    <li class="nav-item">
+                      <a href="<?php echo base_url ?>admin/?page=reports/balance_sheet" class="nav-link text-light nav-reports_balance_sheet">
+                        <i class="nav-icon fas fa-balance-scale"></i>
+                        <p>
+                          Balance Sheet
+                        </p>
+                      </a>
+                    </li>
+                    <li class="nav-item">
+                      <a href="<?php echo base_url ?>admin/?page=reports/income_statement" class="nav-link text-light nav-reports_income_statement">
+                        <i class="nav-icon fas fa-chart-line"></i>
+                        <p>
+                          Income Statement (P&L)
+                        </p>
+                      </a>
+                    </li>
+                    <li class="nav-item">
+                      <a href="<?php echo base_url ?>admin/?page=reports/ar_aging" class="nav-link text-light nav-reports_ar_aging">
+                        <i class="nav-icon fas fa-history"></i>
+                        <p>
+                          Accounts Receivable Aging
+                        </p>
+                      </a>
+                    </li>
+                    <li class="nav-item">
+                      <a href="<?php echo base_url ?>admin/?page=reports/payroll_accounting" class="nav-link text-light nav-reports_payroll_accounting">
+                        <i class="nav-icon fas fa-calculator"></i>
+                        <p>
+                          Payroll Accounting
+                        </p>
+                      </a>
+                    </li>
                     <li class="nav-item">
                       <a href="<?php echo base_url ?>admin/?page=reports/working_trial_balance" class="nav-link text-light nav-reports_working_trial_balance">
                         <i class="nav-icon fas fa-file"></i>
