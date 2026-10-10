@@ -7,7 +7,7 @@
 	<div class="card-header">
 		<h3 class="card-title">List of Employees</h3>
 		<div class="card-tools">
-			<a href="javascript:void(0)" id="create_new" class="btn btn-flat btn-primary"><span class="fas fa-plus"></span> Create New</a>
+			<a href="javascript:void(0)" id="create_new" class="btn btn-flat btn-primary"><span class="fas fa-plus"></span> Create New Employee</a>
 		</div>
 	</div>
 	<div class="card-body">
@@ -15,20 +15,22 @@
 			<table class="table table-hover table-striped table-bordered" id="list">
 				<colgroup>
 					<col width="5%">
+					<col width="12%">
+					<col width="18%">
+					<col width="18%">
 					<col width="15%">
-					<col width="20%">
-					<col width="20%">
-					<col width="15%">
+					<col width="12%">
 					<col width="10%">
-					<col width="15%">
+					<col width="10%">
 				</colgroup>
 				<thead>
 					<tr>
 						<th>#</th>
-						<th>Employee Code</th>
+						<th>Emp Code</th>
 						<th>Name</th>
+						<th>TIN / FNPF</th>
 						<th>Department / Designation</th>
-						<th>Salary</th>
+						<th>Monthly Salary</th>
 						<th>Status</th>
 						<th>Action</th>
 					</tr>
@@ -42,13 +44,17 @@
 					?>
 						<tr>
 							<td class="text-center"><?php echo $i++; ?></td>
-							<td><?php echo $row['employee_code'] ?></td>
+							<td><b><?php echo $row['employee_code'] ?></b></td>
 							<td><?php echo $row['name'] ?></td>
+							<td>
+								<small class="d-block"><b>TIN:</b> <?php echo !empty($row['tin']) ? $row['tin'] : 'N/A' ?></small>
+								<small class="d-block text-muted"><b>FNPF:</b> <?php echo !empty($row['fnpf_no']) ? $row['fnpf_no'] : 'N/A' ?></small>
+							</td>
 							<td>
 								<p class="m-0"><?php echo $row['department'] ?></p>
 								<small class="text-muted"><?php echo $row['designation'] ?></small>
 							</td>
-							<td class="text-right"><?php echo number_format($row['salary'], 2) ?></td>
+							<td class="text-right font-weight-bold"><?php echo number_format($row['salary'], 2) ?> FJD</td>
 							<td class="text-center">
                                 <?php if($row['status'] == 1): ?>
                                     <span class="badge badge-success px-3 rounded-pill">Active</span>
@@ -80,14 +86,14 @@
 			_conf("Are you sure to delete this Employee permanently?","delete_employee",[$(this).attr('data-id')])
 		})
 		$('#create_new').click(function(){
-			uni_modal("<i class='fa fa-plus'></i> Add New Employee","employees/manage_employee.php")
+			uni_modal("<i class='fa fa-plus'></i> Add New Employee","employees/manage_employee.php", 'large')
 		})
 		$('.edit_data').click(function(){
-			uni_modal("<i class='fa fa-edit'></i> Edit Employee","employees/manage_employee.php?id="+$(this).attr('data-id'))
+			uni_modal("<i class='fa fa-edit'></i> Edit Employee","employees/manage_employee.php?id="+$(this).attr('data-id'), 'large')
 		})
 		$('#list').dataTable({
 			columnDefs: [
-					{ orderable: false, targets: [5,6] }
+					{ orderable: false, targets: [6,7] }
 			],
 			order: [0, 'asc']
 		});
