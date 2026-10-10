@@ -98,12 +98,8 @@ class Login extends DBConnection {
 		$ins = $this->conn->query("INSERT INTO `otp_tokens` (`user_id`, `email`, `otp_code`, `expires_at`, `status`) VALUES ('{$user_id}', '{$email}', '{$otp_code}', '{$expires_at}', 0)");
 
 		if($ins){
-			// Attempt to send email via standard PHP mail
-			$subject = "Nuvis ERPX - Password Reset OTP Code";
-			$message = "Hello " . $user['firstname'] . ",\n\nYour OTP code for resetting your password on Nuvis ERPX is: " . $otp_code . "\nThis code will expire in 15 minutes.\n\nNuvis Technologies";
-			$headers = "From: " . $this->settings->info('smtp_user') . "\r\nReply-To: " . $this->settings->info('smtp_user');
-
-			@mail($email, $subject, $message, $headers);
+			require_once(__DIR__ . '/Emailer.php');
+			Emailer::send_auth_otp($email, $user['firstname'], $otp_code);
 
 			return json_encode([
 				'status' => 'success',

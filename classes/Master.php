@@ -75,6 +75,134 @@ Class Master extends DBConnection {
 		return json_encode($resp);
 	}
 
+	function email_invoice(){
+		require_once(__DIR__ . '/Emailer.php');
+		extract($_POST);
+		$tenant_id = $this->settings->active_tenant_id();
+		$id = intval($id);
+
+		$inv_qry = $this->conn->query("
+			SELECT i.*, p.name AS party_name, p.email AS party_email
+			FROM `invoice_list` i
+			INNER JOIN `party_list` p ON i.party_id = p.id
+			WHERE i.id = '{$id}' AND i.tenant_id = '{$tenant_id}'
+		");
+
+		if(!$inv_qry || $inv_qry->num_rows == 0){
+			return json_encode(['status' => 'failed', 'msg' => 'Invoice not found.']);
+		}
+
+		$invoice = $inv_qry->fetch_assoc();
+		$email_to = !empty($custom_email) ? $this->conn->real_escape_string($custom_email) : $invoice['party_email'];
+
+		if(empty($email_to)){
+			return json_encode(['status' => 'failed', 'msg' => 'No email address found for this customer. Please specify an email address.']);
+		}
+
+		$items_qry = $this->conn->query("SELECT * FROM `invoice_items` WHERE invoice_id = '{$id}'");
+		$items = [];
+		while($it = $items_qry->fetch_assoc()){
+			$items[] = $it;
+		}
+
+		$sys_info = [
+			'name' => $this->settings->info('name'),
+			'email' => $this->settings->info('email')
+		];
+
+		$send = Emailer::send_invoice_email($email_to, $invoice, $items, $sys_info);
+		if($send){
+			return json_encode(['status' => 'success', 'msg' => "Invoice #{$invoice['invoice_no']} sent successfully to {$email_to}."]);
+		} else {
+			return json_encode(['status' => 'failed', 'msg' => 'Failed to send invoice email. Please check SMTP settings.']);
+		}
+	}
+
+	function email_payment_receipt(){
+		require_once(__DIR__ . '/Emailer.php');
+		extract($_POST);
+		$tenant_id = $this->settings->active_tenant_id();
+		$id = intval($id);
+
+		$pay_qry = $this->conn->query("
+			SELECT p.*, pt.name AS party_name, pt.email AS party_email
+			FROM `payment_list` p
+			INNER JOIN `party_list` pt ON p.party_id = pt.id
+			WHERE p.id = '{$id}' AND p.tenant_id = '{$tenant_id}'
+		");
+
+		if(!$pay_qry || $pay_qry->num_rows == 0){
+			return json_encode(['status' => 'failed', 'msg' => 'Payment receipt not found.']);
+		}
+
+		$payment = $pay_qry->fetch_assoc();
+		$email_to = !empty($custom_email) ? $this->conn->real_escape_string($custom_email) : $payment['party_email'];
+
+		if(empty($email_to)){
+			return json_encode(['status' => 'failed', 'msg' => 'No email address found for this customer. Please specify an email address.']);
+		}
+
+		$alloc_qry = $this->conn->query("
+			SELECT pa.amount AS allocated_amount, i.invoice_no, i.invoice_date, i.total AS invoice_total
+			FROM `payment_allocations` pa
+			INNER JOIN `invoice_list` i ON pa.invoice_id = i.id
+			WHERE pa.payment_id = '{$id}'
+		");
+		$allocations = [];
+		while($al = $alloc_qry->fetch_assoc()){
+			$allocations[] = $al;
+		}
+
+		$sys_info = [
+			'name' => $this->settings->info('name'),
+			'email' => $this->settings->info('email')
+		];
+
+		$send = Emailer::send_payment_receipt_email($email_to, $payment, $allocations, $sys_info);
+		if($send){
+			return json_encode(['status' => 'success', 'msg' => "Payment Receipt #{$payment['payment_no']} sent successfully to {$email_to}."]);
+		} else {
+			return json_encode(['status' => 'failed', 'msg' => 'Failed to send payment receipt email. Please check SMTP settings.']);
+		}
+	}
+
+	function email_payslip(){
+		require_once(__DIR__ . '/Emailer.php');
+		extract($_POST);
+		$tenant_id = $this->settings->active_tenant_id();
+		$id = intval($id);
+
+		$pay_qry = $this->conn->query("
+			SELECT p.*, concat(e.firstname, ' ', e.lastname) as emp_name, e.phone
+			FROM `payroll_list` p
+			INNER JOIN `employee_list` e ON p.employee_id = e.id
+			WHERE p.id = '{$id}' AND p.tenant_id = '{$tenant_id}'
+		");
+
+		if(!$pay_qry || $pay_qry->num_rows == 0){
+			return json_encode(['status' => 'failed', 'msg' => 'Payroll record not found.']);
+		}
+
+		$payroll = $pay_qry->fetch_assoc();
+		$email_to = !empty($custom_email) ? $this->conn->real_escape_string($custom_email) : '';
+
+		if(empty($email_to)){
+			return json_encode(['status' => 'failed', 'msg' => 'Please enter the employee email address.']);
+		}
+
+		$sys_info = [
+			'name' => $this->settings->info('name'),
+			'email' => $this->settings->info('email')
+		];
+
+		$send = Emailer::send_payslip_email($email_to, $payroll, $sys_info);
+		if($send){
+			return json_encode(['status' => 'success', 'msg' => "Payslip for {$payroll['emp_name']} ({$payroll['salary_month']}) sent successfully to {$email_to}."]);
+		} else {
+			return json_encode(['status' => 'failed', 'msg' => 'Failed to send payslip email. Please check SMTP settings.']);
+		}
+	}
+
 	function save_stock_adjustment(){
 		extract($_POST);
 		$tenant_id = $this->settings->active_tenant_id();
@@ -1865,6 +1993,15 @@ switch ($action) {
 	break;
 	case 'save_stock_adjustment':
 		echo $Master->save_stock_adjustment();
+	break;
+	case 'email_invoice':
+		echo $Master->email_invoice();
+	break;
+	case 'email_payment_receipt':
+		echo $Master->email_payment_receipt();
+	break;
+	case 'email_payslip':
+		echo $Master->email_payslip();
 	break;
 	case 'save_tenant':
 		echo $Master->save_tenant();

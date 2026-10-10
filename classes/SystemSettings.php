@@ -1,7 +1,7 @@
 <?php
 if(!class_exists('DBConnection')){
-	require_once('../config.php');
-	require_once('DBConnection.php');
+	require_once(__DIR__ . '/../config.php');
+	require_once(__DIR__ . '/DBConnection.php');
 }
 class SystemSettings extends DBConnection{
 	public function __construct(){
@@ -211,6 +211,27 @@ class SystemSettings extends DBConnection{
 			$_SESSION['system_info'][$field] = $value;
 		}
 	}
+
+	function send_test_email(){
+		require_once(__DIR__ . '/Emailer.php');
+		$to = isset($_POST['test_email']) ? trim($_POST['test_email']) : '';
+		if(empty($to)){
+			return json_encode(['status' => 'failed', 'msg' => 'Please enter a test email address.']);
+		}
+
+		$body = "
+		<h3>Nuvis ERPX Email Test</h3>
+		<p>Congratulations! Your email notification settings are working properly.</p>
+		<p><b>SMTP Host:</b> " . htmlspecialchars($this->info('smtp_host')) . "<br>
+		<b>SMTP Port:</b> " . htmlspecialchars($this->info('smtp_port')) . "</p>";
+
+		$send = Emailer::send_email($to, "Nuvis ERPX - Test Email", $body);
+		if($send){
+			return json_encode(['status' => 'success', 'msg' => "Test email successfully sent to {$to}."]);
+		} else {
+			return json_encode(['status' => 'failed', 'msg' => "Failed to send test email. Please check your email configuration."]);
+		}
+	}
 }
 $_settings = new SystemSettings();
 $_settings->load_system_info();
@@ -219,6 +240,9 @@ $sysset = new SystemSettings();
 switch ($action) {
 	case 'update_settings':
 		echo $sysset->update_settings_info();
+		break;
+	case 'send_test_email':
+		echo $sysset->send_test_email();
 		break;
 	case 'switch_tenant':
 		if(isset($_POST['tenant_id'])){
